@@ -1,0 +1,56 @@
+.info-window {
+    padding: 10px;
+    max-width: 200px;
+  }
+  
+  .info-window h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: var(--primary-color);
+  }
+  
+  .info-detail {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 5px 0;
+    font-size: 14px;
+    color: var(--text-color);
+  }
+  
+  .view-details-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+    transition: background-color 0.3s ease;
+  }
+  
+  .view-details-btn:hover {
+    background-color: #4338CA;
+  }
+  
+  .map-legend {
+    background-color: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-color);
+  }
+  
+  
