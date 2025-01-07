@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Star, Bell, MessageCircle, Heart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Star, Bell, MessageCircle, Heart, User } from 'lucide-react';
 import './Home.css';
 import './RentalMap.css';
 import ChatBox from './ChatBox';
@@ -83,6 +83,22 @@ function Home() {
   const [favorites, setFavorites] = useState([]);
   const [showChat, setShowChat] = useState(false);
   const [currentLandlord, setCurrentLandlord] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [username, setUsername] = useState(''); // Added username state
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    if (token && storedUser) {
+      setIsLoggedIn(true);
+      setUsername(storedUser.name); // Update: Set username from stored user data
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -105,6 +121,17 @@ function Home() {
         return [...prev, listingId];
       }
     });
+  };
+
+  const handleBookNow = (listing) => {
+    navigate(`/booknow/${listing.id}`, { state: { roomDetails: listing } });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setIsLoggedIn(false);
+    navigate('/');
   };
 
   return (
@@ -131,10 +158,26 @@ function Home() {
                   <MessageCircle size={20} />
                 </Link>
               </div>
-              <div className="auth-buttons">
-                <Link to="/login" className="btn btn-outline">Sign In</Link>
-                <Link to="/register" className="btn btn-primary">Sign Up</Link>
-              </div>
+              {isLoggedIn ? (
+                <div className="user-menu">
+                  <div className="profile-icon" onClick={() => setShowDropdown(!showDropdown)}>
+                    <User size={24} />
+                    <span className="username">{username}</span> {/* Updated user menu to display username */}
+                  </div>
+                  {showDropdown && (
+                    <div className="dropdown-menu">
+                      <Link to="/profile" className="dropdown-item">Personal Information</Link>
+                      <Link to="/settings" className="dropdown-item">Settings</Link>
+                      <button onClick={handleLogout} className="dropdown-item">Logout</button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="auth-buttons">
+                  <Link to="/login" className="btn btn-outline">Sign In</Link>
+                  <Link to="/register" className="btn btn-primary">Sign Up</Link>
+                </div>
+              )}
             </div>
           </nav>
         </div>
@@ -215,7 +258,12 @@ function Home() {
                     )}
                   </div>
                   <div className="listing-actions">
-                    <button className="btn btn-primary btn-book">Book Now</button>
+                    <button 
+                      className="btn btn-primary btn-book"
+                      onClick={() => handleBookNow(listing)}
+                    >
+                      Book Now
+                    </button>
                     <button 
                       className="btn btn-outline btn-chat"
                       onClick={() => {
@@ -275,18 +323,17 @@ function Home() {
 
       <section className="why-choose-us">
         <div className="container">
-          <h2>Why Choose Room Rental</h2>
+          <h2>Why Choose RoomRental</h2>
           <div className="benefits-grid">
             <div className="benefit-card">
               <div className="benefit-icon">🔒</div>
               <h3>Secure Transactions</h3>
-              <p>Our platform ensures safe and secure transactions for both tenants and landlords in Nepal.</p>
+              <p>Our platform ensures safe and secure transactions for both tenants and landlords.</p>
             </div>
-            
             <div className="benefit-card">
               <div className="benefit-icon">📊</div>
               <h3>Extensive Listings</h3>
-              <p>Access a wide variety of rooms and properties across Nepal to suit every need and budget.</p>
+              <p>Access a wide variety of rooms and properties to suit every need and budget.</p>
             </div>
             <div className="benefit-card">
               <div className="benefit-icon">🛠️</div>
@@ -299,7 +346,7 @@ function Home() {
 
       <section className="testimonials">
         <div className="container">
-          <h2>What Our Users Say About Room Rental</h2>
+          <h2>What Our Users Say</h2>
           <div className="testimonials-grid">
             {testimonials.map((testimonial) => (
               <div key={testimonial.id} className="testimonial-card">
@@ -327,7 +374,7 @@ function Home() {
           <div className="footer-content">
             <div className="footer-section">
               <h3>RoomRental</h3>
-              <p>Connecting rooms and people seamlessly across Nepal.</p>
+              <p>Connecting rooms and people seamlessly.</p>
             </div>
             <div className="footer-section">
               <h3>Quick Links</h3>

@@ -6,6 +6,8 @@ import About from './components/About';
 import AddProperty from './components/AddProperty';
 import Login from './components/Login';
 import Register from './components/Register';
+import BookNow from './components/BookNow';
+import ViewAllRooms from './components/ViewAllRoom';
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
         <Route path="/add-property" element={<AddProperty />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/booknow/:id" element={<BookNow />} />
+        <Route path="/rooms" element={<ViewAllRooms />} />
       </Routes>
     </Router>
   );
