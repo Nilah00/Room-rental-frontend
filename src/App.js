@@ -8,7 +8,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import BookNow from './components/BookNow';
 import ViewAllRooms from './components/ViewAllRoom';
-
+import Saved from './components/Saved';
 function App() {
   return (
     <Router>
@@ -21,6 +21,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/booknow/:id" element={<BookNow />} />
         <Route path="/rooms" element={<ViewAllRooms />} />
+        <Route path="/saved" element={<Saved />}/>
       </Routes>
     </Router>
   );

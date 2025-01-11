@@ -77,7 +77,6 @@ function Home() {
     location: '',
     priceRange: '',
     furnished: '',
-    amenities: []
   });
 
   const [favorites, setFavorites] = useState([]);
@@ -85,7 +84,7 @@ function Home() {
   const [currentLandlord, setCurrentLandlord] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [username, setUsername] = useState(''); // Added username state
+  const [username, setUsername] = useState('');
 
   const navigate = useNavigate();
 
@@ -94,9 +93,15 @@ function Home() {
     const storedUser = JSON.parse(localStorage.getItem('user'));
     if (token && storedUser) {
       setIsLoggedIn(true);
-      setUsername(storedUser.name); // Update: Set username from stored user data
+      setUsername(storedUser.name);
     } else {
       setIsLoggedIn(false);
+    }
+
+    // Load favorites from localStorage
+    const storedFavorites = localStorage.getItem('favorites');
+    if (storedFavorites) {
+      setFavorites(JSON.parse(storedFavorites));
     }
   }, []);
 
@@ -110,16 +115,21 @@ function Home() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Search params:', searchParams);
+    const searchQuery = new URLSearchParams(searchParams).toString();
+    navigate(`/rooms?${searchQuery}`);
   };
 
-  const toggleFavorite = (listingId) => {
+  const toggleFavorite = (listing) => {
     setFavorites(prev => {
-      if (prev.includes(listingId)) {
-        return prev.filter(id => id !== listingId);
-      } else {
-        return [...prev, listingId];
-      }
+      const listingId = listing.id;
+      const newFavorites = prev.some(fav => fav.id === listingId)
+        ? prev.filter(fav => fav.id !== listingId)
+        : [...prev, listing];
+    
+      // Save to localStorage
+      localStorage.setItem('favorites', JSON.stringify(newFavorites));
+    
+      return newFavorites;
     });
   };
 
@@ -162,7 +172,7 @@ function Home() {
                 <div className="user-menu">
                   <div className="profile-icon" onClick={() => setShowDropdown(!showDropdown)}>
                     <User size={24} />
-                    <span className="username">{username}</span> {/* Updated user menu to display username */}
+                    <span className="username">{username}</span>
                   </div>
                   {showDropdown && (
                     <div className="dropdown-menu">
@@ -274,10 +284,11 @@ function Home() {
                       💬 Chat with Landlord
                     </button>
                     <button 
-                      className={`btn btn-icon ${favorites.includes(listing.id) ? 'btn-favorite-active' : 'btn-favorite'}`} 
-                      onClick={() => toggleFavorite(listing.id)}
+                      className={`btn btn-icon ${favorites.some(fav => fav.id === listing.id) ? 'btn-favorite-active' : 'btn-favorite'}`} 
+                      onClick={() => toggleFavorite(listing)}
+                      aria-label={favorites.some(fav => fav.id === listing.id) ? "Remove from favorites" : "Add to favorites"}
                     >
-                      <Heart size={20} />
+                      <Heart size={20} fill={favorites.some(fav => fav.id === listing.id) ? "red" : "none"} />
                     </button>
                   </div>
                 </div>
