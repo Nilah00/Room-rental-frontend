@@ -1,39 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import './Auth.css';
 
 function Login() {
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
+    password: ''
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/'); // Redirect to home page after successful login
-      } else {
-        setError(data.message);
-      }
-    } catch (error) {
-      setError('An error occurred. Please try again.');
-    }
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -41,17 +18,68 @@ function Login() {
       ...prev,
       [name]: value
     }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/login', formData);
+      
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      setIsLoading(false);
+      navigate('/');
+    } catch (error) {
+      setIsLoading(false);
+      
+      if (error.response) {
+        // Server responded with an error
+        if (error.response.data.details) {
+          setErrors(error.response.data.details);
+        } else if (error.response.data.field) {
+          setErrors({
+            [error.response.data.field]: error.response.data.message
+          });
+        } else {
+          setErrors({
+            general: error.response.data.message || 'An error occurred during login'
+          });
+        }
+      } else if (error.request) {
+        // Request was made but no response
+        setErrors({
+          general: 'Unable to connect to the server. Please try again later.'
+        });
+      } else {
+        // Something else happened
+        setErrors({
+          general: 'An unexpected error occurred. Please try again.'
+        });
+      }
+    }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h2>Sign In</h2>
-        <p className="auth-subtitle">Please enter your credentials to login</p>
+    <div className="login-container">
+      <div className="login-card">
+        <h2>Login to Your Account</h2>
         
-        {error && <p className="error-message">{error}</p>}
-        
-        <form onSubmit={handleSubmit} className="auth-form">
+        {errors.general && (
+          <div className="error-message general">{errors.general}</div>
+        )}
+
+        <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
@@ -60,10 +88,12 @@ function Login() {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              required
+              className={errors.email ? 'error' : ''}
+              disabled={isLoading}
             />
+            {errors.email && <div className="error-message">{errors.email}</div>}
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
@@ -72,15 +102,23 @@ function Login() {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              required
+              className={errors.password ? 'error' : ''}
+              disabled={isLoading}
             />
+            {errors.password && <div className="error-message">{errors.password}</div>}
           </div>
-          
-          <button type="submit" className="auth-button">Sign In</button>
+
+          <button 
+            type="submit" 
+            className="login-button"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Logging in...' : 'Login'}
+          </button>
         </form>
-        
-        <p className="auth-footer">
-          Don't have an account? <Link to="/register">Create one</Link>
+
+        <p className="register-link">
+          Don't have an account? <Link to="/register">Register here</Link>
         </p>
       </div>
     </div>

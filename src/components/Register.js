@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import './Auth.css';
 
 function Register() {
@@ -7,44 +8,11 @@ function Register() {
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
+    confirmPassword: ''
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/'); // Redirect to home page after successful registration
-      } else {
-        setError(data.message);
-      }
-    } catch (error) {
-      setError('An error occurred. Please try again.');
-    }
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -52,29 +20,120 @@ function Register() {
       ...prev,
       [name]: value
     }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email';
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    return newErrors;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Client-side validation
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/register', {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+      });
+      
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      setIsLoading(false);
+      navigate('/');
+    } catch (error) {
+      setIsLoading(false);
+      
+      if (error.response) {
+        // Server responded with an error
+        if (error.response.data.details) {
+          setErrors(error.response.data.details);
+        } else if (error.response.data.field) {
+          setErrors({
+            [error.response.data.field]: error.response.data.message
+          });
+        } else {
+          setErrors({
+            general: error.response.data.message || 'Registration failed'
+          });
+        }
+      } else if (error.request) {
+        // Request was made but no response
+        setErrors({
+          general: 'Unable to connect to the server. Please try again later.'
+        });
+      } else {
+        // Something else happened
+        setErrors({
+          general: 'An unexpected error occurred. Please try again.'
+        });
+      }
+    }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h2>Create Account</h2>
-        <p className="auth-subtitle">Please fill in the details to register</p>
+    <div className="register-container">
+      <div className="register-card">
+        <h2>Create an Account</h2>
         
-        {error && <p className="error-message">{error}</p>}
-        
-        <form onSubmit={handleSubmit} className="auth-form">
+        {errors.general && (
+          <div className="error-message general">{errors.general}</div>
+        )}
+
+        <form onSubmit={handleSubmit} className="register-form">
           <div className="form-group">
-            <label htmlFor="name">Full Name</label>
+            <label htmlFor="name">Name</label>
             <input
               type="text"
               id="name"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              required
+              className={errors.name ? 'error' : ''}
+              disabled={isLoading}
             />
+            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
@@ -83,10 +142,12 @@ function Register() {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              required
+              className={errors.email ? 'error' : ''}
+              disabled={isLoading}
             />
+            {errors.email && <div className="error-message">{errors.email}</div>}
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
@@ -95,10 +156,12 @@ function Register() {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              required
+              className={errors.password ? 'error' : ''}
+              disabled={isLoading}
             />
+            {errors.password && <div className="error-message">{errors.password}</div>}
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirm Password</label>
             <input
@@ -107,15 +170,25 @@ function Register() {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              required
+              className={errors.confirmPassword ? 'error' : ''}
+              disabled={isLoading}
             />
+            {errors.confirmPassword && (
+              <div className="error-message">{errors.confirmPassword}</div>
+            )}
           </div>
-          
-          <button type="submit" className="auth-button">Create Account</button>
+
+          <button 
+            type="submit" 
+            className="register-button"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Creating Account...' : 'Register'}
+          </button>
         </form>
-        
-        <p className="auth-footer">
-          Already have an account? <Link to="/login">Sign in</Link>
+
+        <p className="login-link">
+          Already have an account? <Link to="/login">Login here</Link>
         </p>
       </div>
     </div>

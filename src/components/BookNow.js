@@ -30,8 +30,6 @@ export default function BookNow() {
         if (location.state && location.state.roomDetails) {
           setRoomDetails(location.state.roomDetails);
         } else {
-          // Fetch room details from API if not provided in location state
-          // For now, we'll use a placeholder
           setRoomDetails({
             id: id,
             title: "Sample Room",

@@ -13,11 +13,9 @@ const Saved = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load favorites from localStorage
     const storedFavorites = JSON.parse(localStorage.getItem('favorites')) || [];
     setSavedListings(storedFavorites);
 
-    // Check login status
     const token = localStorage.getItem('token');
     const storedUser = JSON.parse(localStorage.getItem('user'));
     if (token && storedUser) {

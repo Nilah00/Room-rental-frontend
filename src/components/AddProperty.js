@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import './AddProperty.css';
 
 function AddProperty() {
@@ -12,9 +13,41 @@ function AddProperty() {
     bathrooms: '',
     furnished: false,
     amenities: [],
-    images: [],
-    video: null
+    imagePaths: [],
+    videoPath: ''
   });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setIsAuthenticated(false);
+      navigate('/login');
+      return;
+    }
+
+    // Verify token validity
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const isExpired = payload.exp * 1000 < Date.now();
+      
+      if (isExpired) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setIsAuthenticated(false);
+        navigate('/login');
+      } else {
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.error('Token validation error:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setIsAuthenticated(false);
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -36,50 +69,69 @@ function AddProperty() {
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
+    const paths = files.map(file => URL.createObjectURL(file));
     setFormData(prevState => ({
       ...prevState,
-      images: [...prevState.images, ...files]
+      imagePaths: [...prevState.imagePaths, ...paths]
     }));
   };
 
   const handleVideoUpload = (e) => {
     const file = e.target.files[0];
+    const path = URL.createObjectURL(file);
     setFormData(prevState => ({
       ...prevState,
-      video: file
+      videoPath: path
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    //send the data to  backend
-    alert('Property added successfully!');
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login to add a property');
+        navigate('/login');
+        return;
+      }
+
+      const response = await axios.post('http://localhost:5000/api/properties', formData, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      console.log('Property added:', response.data);
+      alert('Property added successfully!');
+      navigate('/rooms');
+    } catch (error) {
+      console.error('Error details:', error);
+      if (error.response?.status === 403 || error.response?.data?.message?.includes('token')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        alert('Session expired. Please login again.');
+        navigate('/login');
+      } else {
+        alert(`Failed to add property. ${error.response?.data?.message || error.message}`);
+      }
+    }
   };
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="add-property-page">
       <header className="header">
-        <div className="container">
-          <Link to="/" className="logo">
-            <span className="home-icon">🏠</span>
-            <span className="logo-text">RoomRental</span>
-          </Link>
-          <nav>
-            <Link to="/" className="nav-link">Home</Link>
-            <Link to="/services" className="nav-link">Services</Link>
-            <Link to="/about" className="nav-link">About Us</Link>
-            <Link to="/add-property" className="nav-link">Add Property</Link>
-          </nav>
-        </div>
+        <h1>Add Your Property</h1>
       </header>
 
       <main className="add-property-content">
         <div className="container">
-          <h1>Add Your Room</h1>
           <form onSubmit={handleSubmit} className="add-property-form">
             <div className="form-group">
-              <label htmlFor="title">Room Title</label>
+              <label htmlFor="title">Title</label>
               <input
                 type="text"
                 id="title"
@@ -97,10 +149,10 @@ function AddProperty() {
                 value={formData.description}
                 onChange={handleInputChange}
                 required
-              ></textarea>
+              />
             </div>
             <div className="form-group">
-              <label htmlFor="price">Price (Rs. per month)</label>
+              <label htmlFor="price">Price (per month)</label>
               <input
                 type="number"
                 id="price"
@@ -122,7 +174,7 @@ function AddProperty() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="bedrooms">Number of Bedrooms</label>
+              <label htmlFor="bedrooms">Bedrooms</label>
               <input
                 type="number"
                 id="bedrooms"
@@ -133,7 +185,7 @@ function AddProperty() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="bathrooms">Number of Bathrooms</label>
+              <label htmlFor="bathrooms">Bathrooms</label>
               <input
                 type="number"
                 id="bathrooms"
@@ -144,49 +196,31 @@ function AddProperty() {
               />
             </div>
             <div className="form-group">
-              <label>
-                <input
-                  type="checkbox"
-                  name="furnished"
-                  checked={formData.furnished}
-                  onChange={handleInputChange}
-                />
-                Furnished
-              </label>
+              <label htmlFor="furnished">Furnished</label>
+              <input
+                type="checkbox"
+                id="furnished"
+                name="furnished"
+                checked={formData.furnished}
+                onChange={handleInputChange}
+              />
             </div>
             <div className="form-group">
               <label>Amenities</label>
               <div className="amenities-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="amenities"
-                    value="wifi"
-                    checked={formData.amenities.includes('wifi')}
-                    onChange={handleAmenityChange}
-                  />
-                  Wi-Fi
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    name="amenities"
-                    value="parking"
-                    checked={formData.amenities.includes('parking')}
-                    onChange={handleAmenityChange}
-                  />
-                  Parking
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    name="amenities"
-                    value="ac"
-                    checked={formData.amenities.includes('ac')}
-                    onChange={handleAmenityChange}
-                  />
-                  Air Conditioning
-                </label>
+                {['AC', 'WiFi', 'Parking', 'Water', 'TV', 'Washing Machine', 'Refrigerator', 'Microwave'].map((amenity) => (
+                  <div key={amenity} className="amenity-item">
+                    <input
+                      type="checkbox"
+                      id={amenity.toLowerCase()}
+                      name="amenities"
+                      value={amenity.toLowerCase()}
+                      checked={formData.amenities.includes(amenity.toLowerCase())}
+                      onChange={handleAmenityChange}
+                    />
+                    <label htmlFor={amenity.toLowerCase()}>{amenity}</label>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="form-group">
@@ -199,6 +233,12 @@ function AddProperty() {
                 multiple
                 onChange={handleImageUpload}
               />
+              {formData.imagePaths.map((path, index) => (
+                <div key={index}>
+                  <img src={path} alt={`Uploaded ${index + 1}`} style={{width: '100px', height: '100px'}} />
+                  <p>Image Path: {path}</p>
+                </div>
+              ))}
             </div>
             <div className="form-group">
               <label htmlFor="video">Upload Video</label>
@@ -209,6 +249,12 @@ function AddProperty() {
                 accept="video/*"
                 onChange={handleVideoUpload}
               />
+              {formData.videoPath && (
+                <div>
+                  <video src={formData.videoPath} style={{width: '200px'}} controls />
+                  <p>Video Path: {formData.videoPath}</p>
+                </div>
+              )}
             </div>
             <div className="button-group">
               <button type="submit" className="btn btn-primary">Add Property</button>
@@ -218,33 +264,7 @@ function AddProperty() {
       </main>
 
       <footer className="footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3>RoomRental</h3>
-              <p>Connecting rooms and people seamlessly across Nepal.</p>
-            </div>
-            <div className="footer-section">
-              <h3>Quick Links</h3>
-              <ul>
-                <li><Link to="/">Home</Link></li>
-                <li><Link to="/services">Services</Link></li>
-                <li><Link to="/about">About Us</Link></li>
-                <li><Link to="/add-property">List Your Property</Link></li>
-              </ul>
-            </div>
-            <div className="footer-section">
-              <h3>Legal</h3>
-              <ul>
-                <li><Link to="/terms">Terms of Service</Link></li>
-                <li><Link to="/privacy">Privacy Policy</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <p>&copy; 2024 RoomRental. All rights reserved.</p>
-          </div>
-        </div>
+        <p>&copy; 2024 RoomRental. All rights reserved.</p>
       </footer>
     </div>
   );

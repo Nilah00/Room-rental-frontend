@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Star, Bell, MessageCircle, Heart, User } from 'lucide-react';
+import { Star, Bell, MessageCircle, Heart, User, Edit, Trash2 } from 'lucide-react';
+import axios from 'axios';
 import './Home.css';
 import './RentalMap.css';
 import ChatBox from './ChatBox';
@@ -85,6 +86,7 @@ function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [username, setUsername] = useState('');
+  const [userProperties, setUserProperties] = useState([]);
 
   const navigate = useNavigate();
 
@@ -94,16 +96,29 @@ function Home() {
     if (token && storedUser) {
       setIsLoggedIn(true);
       setUsername(storedUser.name);
+      fetchUserProperties(token);
     } else {
       setIsLoggedIn(false);
     }
 
-    // Load favorites from localStorage
     const storedFavorites = localStorage.getItem('favorites');
     if (storedFavorites) {
       setFavorites(JSON.parse(storedFavorites));
     }
   }, []);
+
+  const fetchUserProperties = async (token) => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/user/properties', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setUserProperties(response.data);
+    } catch (error) {
+      console.error('Error fetching user properties:', error);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -126,7 +141,6 @@ function Home() {
         ? prev.filter(fav => fav.id !== listingId)
         : [...prev, listing];
     
-      // Save to localStorage
       localStorage.setItem('favorites', JSON.stringify(newFavorites));
     
       return newFavorites;
@@ -141,7 +155,29 @@ function Home() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsLoggedIn(false);
+    setUsername('');
+    setUserProperties([]);
     navigate('/');
+  };
+
+  const handleEditProperty = (propertyId) => {
+    navigate(`/edit-property/${propertyId}`);
+  };
+
+  const handleDeleteProperty = async (propertyId) => {
+    if (window.confirm('Are you sure you want to delete this property?')) {
+      try {
+        const token = localStorage.getItem('token');
+        await axios.delete(`http://localhost:5000/api/properties/${propertyId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setUserProperties(prev => prev.filter(prop => prop._id !== propertyId));
+      } catch (error) {
+        console.error('Error deleting property:', error);
+      }
+    }
   };
 
   return (
@@ -178,6 +214,7 @@ function Home() {
                     <div className="dropdown-menu">
                       <Link to="/profile" className="dropdown-item">Personal Information</Link>
                       <Link to="/settings" className="dropdown-item">Settings</Link>
+                      <Link to="/manage-properties" className="dropdown-item">Manage Properties ({userProperties.length})</Link>
                       <button onClick={handleLogout} className="dropdown-item">Logout</button>
                     </div>
                   )}
@@ -236,6 +273,37 @@ function Home() {
           <RentalMap />
         </div>
       </section>
+
+      {isLoggedIn && userProperties.length > 0 && (
+        <section className="user-properties">
+          <div className="container">
+            <h2>Your Properties</h2>
+            <div className="properties-grid">
+              {userProperties.map((property) => (
+                <div key={property._id} className="property-card">
+                  <img src={property.images[0] || '/placeholder.jpg'} alt={property.title} className="property-image" />
+                  <div className="property-details">
+                    <h3>{property.title}</h3>
+                    <p>{property.location}</p>
+                    <p>Rs {property.price.toLocaleString()}/month</p>
+                    <div className="property-actions">
+                      <button onClick={() => handleEditProperty(property._id)} className="btn btn-secondary">
+                        <Edit size={16} /> Edit
+                      </button>
+                      <button onClick={() => handleDeleteProperty(property._id)} className="btn btn-danger">
+                        <Trash2 size={16} /> Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="view-more-container">
+              <Link to="/manage-property" className="btn btn-primary">Manage All Properties</Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="featured-listings">
         <div className="container">

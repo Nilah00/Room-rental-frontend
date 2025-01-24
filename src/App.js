@@ -9,6 +9,8 @@ import Register from './components/Register';
 import BookNow from './components/BookNow';
 import ViewAllRooms from './components/ViewAllRoom';
 import Saved from './components/Saved';
+import ManageProperties from './components/ManageProperty';
+
 function App() {
   return (
     <Router>
@@ -22,6 +24,7 @@ function App() {
         <Route path="/booknow/:id" element={<BookNow />} />
         <Route path="/rooms" element={<ViewAllRooms />} />
         <Route path="/saved" element={<Saved />}/>
+        <Route path="/manage-properties" element={<ManageProperties/>}/>
       </Routes>
     </Router>
   );

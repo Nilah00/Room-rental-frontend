@@ -1,74 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import axios from 'axios';
 import { Heart } from 'lucide-react';
-import ChatBox from './ChatBox';
 import './ViewAllRoom.css';
 
-const allRooms = [
-  {
-    id: 1,
-    title: "Spacious room in Thamel",
-    price: 25000,
-    furnished: true,
-    amenities: { parking: true, wifi: true, water: true },
-    image: "/room1.jpg",
-    landlordName: "Nifiya Shrestha",
-  },
-  {
-    id: 2,
-    title: "Spacious Apartment in Patan",
-    price: 35000,
-    furnished: false,
-    amenities: { parking: true, wifi: true, water: false },
-    image: "/room2.jpeg",
-    landlordName: "Nitika Suwal",
-  },
-  {
-    id: 3,
-    title: "Modern Loft in Lazimpat",
-    price: 30000,
-    furnished: true,
-    amenities: { parking: false, wifi: true, water: true },
-    image: "/room3.jpg",
-    landlordName: "Sara Lamichhane",
-  },
-  {
-    id: 4,
-    title: "Cozy Room in Boudha",
-    price: 20000,
-    furnished: true,
-    amenities: { parking: false, wifi: true, water: true },
-    image: "/room4.jpg",
-    landlordName: "Rajan Rai",
-  },
-  {
-    id: 5,
-    title: "Luxury Apartment in Jhamsikhel",
-    price: 50000,
-    furnished: true,
-    amenities: { parking: true, wifi: true, water: true },
-    image: "/room5.jpg",
-    landlordName: "Anita Sharma",
-  },
-  {
-    id: 6,
-    title: "Simple Room in Koteshwor",
-    price: 15000,
-    furnished: false,
-    amenities: { parking: false, wifi: true, water: true },
-    image: "/room6.jpg",
-    landlordName: "Suman Shrestha",
-  },
-];
-
 function ViewAllRooms() {
+  const [rooms, setRooms] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [searchParams, setSearchParams] = useState({
     location: '',
     priceRange: '',
     furnished: '',
   });
-  const [filteredRooms, setFilteredRooms] = useState(allRooms);
+  const [filteredRooms, setFilteredRooms] = useState([]);
   const [showChat, setShowChat] = useState(false);
   const [currentLandlord, setCurrentLandlord] = useState('');
 
@@ -76,10 +20,10 @@ function ViewAllRooms() {
   const location = useLocation();
 
   const handleSearch = useCallback(() => {
-    const filtered = allRooms.filter((room) => {
+    const filtered = rooms.filter((room) => {
       const matchesLocation =
         !searchParams.location ||
-        room.title.toLowerCase().includes(searchParams.location.toLowerCase());
+        room.location.toLowerCase().includes(searchParams.location.toLowerCase());
       const matchesPrice =
         !searchParams.priceRange ||
         (searchParams.priceRange === '0-15000' && room.price <= 15000) ||
@@ -99,13 +43,14 @@ function ViewAllRooms() {
     });
 
     setFilteredRooms(filtered);
-  }, [searchParams]);
+  }, [rooms, searchParams]);
 
   useEffect(() => {
-    const storedFavorites = JSON.parse(localStorage.getItem('favorites')) || [];
-    setFavorites(storedFavorites);
+    fetchRooms();
+    loadFavorites();
+  }, []);
 
-    // Parse search params from URL
+  useEffect(() => {
     const params = new URLSearchParams(location.search);
     setSearchParams({
       location: params.get('location') || '',
@@ -116,17 +61,23 @@ function ViewAllRooms() {
 
   useEffect(() => {
     handleSearch();
-  }, [searchParams, handleSearch]);
+  }, [searchParams, rooms, handleSearch]);
 
-  const toggleFavorite = (room) => {
-    setFavorites((prev) => {
-      const newFavorites = prev.some(fav => fav.id === room.id)
-        ? prev.filter(fav => fav.id !== room.id)
-        : [...prev, room];
-      localStorage.setItem('favorites', JSON.stringify(newFavorites));
-      return newFavorites;
-    });
+  const fetchRooms = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/properties');
+      setRooms(response.data);
+      setFilteredRooms(response.data);
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+    }
   };
+
+  const loadFavorites = () => {
+    const storedFavorites = JSON.parse(localStorage.getItem('favorites')) || [];
+    setFavorites(storedFavorites);
+  };
+
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -136,6 +87,15 @@ function ViewAllRooms() {
     }));
   };
 
+  const toggleFavorite = (room) => {
+    setFavorites((prev) => {
+      const newFavorites = prev.some((fav) => fav.id === room.id)
+        ? prev.filter((fav) => fav.id !== room.id)
+        : [...prev, room];
+      localStorage.setItem('favorites', JSON.stringify(newFavorites));
+      return newFavorites;
+    });
+  };
 
   const handleBookNow = (room) => {
     navigate(`/booknow/${room.id}`, { state: { roomDetails: room } });
@@ -191,7 +151,7 @@ function ViewAllRooms() {
           {filteredRooms.map((room) => (
             <div key={room.id} className="listing-card">
               <img
-                src={room.image}
+                src={room.images[0]}
                 alt={room.title}
                 className="listing-image"
               />
@@ -202,9 +162,9 @@ function ViewAllRooms() {
                   {room.furnished ? 'Furnished' : 'Unfurnished'}
                 </p>
                 <div className="amenities">
-                  {room.amenities.parking && <div className="amenity">🅿️ Parking</div>}
-                  {room.amenities.wifi && <div className="amenity">📶 WiFi</div>}
-                  {room.amenities.water && <div className="amenity">💧 Water</div>}
+                  {room.amenities.includes('parking') && <div className="amenity">🅿️ Parking</div>}
+                  {room.amenities.includes('wifi') && <div className="amenity">📶 WiFi</div>}
+                  {room.amenities.includes('water') && <div className="amenity">💧 Water</div>}
                 </div>
                 <div className="listing-actions">
                   <button
@@ -215,17 +175,20 @@ function ViewAllRooms() {
                   </button>
                   <button
                     className="btn btn-outline btn-chat"
-                    onClick={() => handleChatWithLandlord(room.landlordName)}
+                    onClick={() => handleChatWithLandlord(room.owner.name)}
                   >
                     💬 Chat with Landlord
                   </button>
                   <button
                     className={`btn btn-icon ${
-                      favorites.some(fav => fav.id === room.id) ? 'btn-favorite-active' : ''
+                      favorites.some((fav) => fav.id === room.id) ? 'btn-favorite-active' : ''
                     }`}
                     onClick={() => toggleFavorite(room)}
                   >
-                    <Heart size={20} fill={favorites.some(fav => fav.id === room.id) ? "red" : "none"} />
+                    <Heart
+                      size={20}
+                      fill={favorites.some((fav) => fav.id === room.id) ? "red" : "none"}
+                    />
                   </button>
                 </div>
               </div>
@@ -234,10 +197,16 @@ function ViewAllRooms() {
         </div>
       </div>
       {showChat && (
-        <ChatBox
-          landlordName={currentLandlord}
-          onClose={() => setShowChat(false)}
-        />
+        <div className="chat-overlay">
+          <div className="chat-container">
+            <h2>Chat with {currentLandlord}</h2>
+            <div className="chat-messages">
+              {/* Chat messages would go here */}
+            </div>
+            <input type="text" placeholder="Type your message..." />
+            <button onClick={() => setShowChat(false)}>Close Chat</button>
+          </div>
+        </div>
       )}
     </div>
   );
