@@ -162,6 +162,7 @@ function ViewAllRooms() {
               />
               <div className="listing-details">
                 <h3>{room.title}</h3>
+                <p className="listing-location">{room.location}</p>
                 <p className="listing-price">Rs {room.price.toLocaleString()}/month</p>
                 <p className="furnished-status">{room.furnished ? "Furnished" : "Unfurnished"}</p>
                 <div className="amenities">

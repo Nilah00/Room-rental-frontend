@@ -277,7 +277,11 @@ body {
   color: var(--primary-color);
   margin-bottom: 0.5rem;
 }
-
+.listing-location {
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 5px;
+}
 .furnished-status {
   font-size: 0.875rem;
   color: var(--gray);

@@ -149,6 +149,7 @@ const Saved = () => {
                   )}
                   <div className="listing-details">
                     <h3>{listing.title}</h3>
+                    <p className="listing-location">{listing.location}</p>
                     <p className="listing-price">Rs {listing.price?.toLocaleString()}/month</p>
                     <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
                     <div className="amenities">

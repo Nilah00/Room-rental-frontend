@@ -61,6 +61,7 @@ function Home() {
   const fetchFeaturedListings = async () => {
     try {
       const response = await axios.get("http://localhost:5000/api/properties/featured")
+      console.log("Fetched featured listings:", response.data)
       setFeaturedListings(response.data)
     } catch (error) {
       console.error("Error fetching featured listings:", error)
@@ -284,60 +285,65 @@ function Home() {
       <section className="featured-listings">
         <div className="container">
           <h2>Featured Rooms</h2>
-          <div className="listings-grid">
-            {featuredListings.map((listing) => (
-              <div key={listing._id} className="listing-card">
-                <img
-                  src={getImageUrl(listing.images[0]) || "/placeholder.svg"}
-                  alt={listing.title}
-                  className="listing-image"
-                  width={250}
-                  height={167}
-                  onError={handleImageError}
-                />
-                <div className="listing-details">
-                  <h3>{listing.title}</h3>
-                  <p className="listing-price">Rs {listing.price.toLocaleString()}/month</p>
-                  <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
-                  <div className="amenities">
-                    {listing.amenities.includes("parking") && <div className="amenity">🅿️ Parking</div>}
-                    {listing.amenities.includes("wifi") && <div className="amenity">📶 WiFi</div>}
-                    {listing.amenities.includes("water") && <div className="amenity">💧 Water</div>}
-                  </div>
-                  <div className="listing-actions">
-                    <button className="btn btn-primary btn-book" onClick={() => handleBookNow(listing)}>
-                      Book Now
-                    </button>
-                    <button
-                      className="btn btn-outline btn-chat"
-                      onClick={() => {
-                        setCurrentLandlord(listing.owner.name || "Landlord")
-                        setShowChat(true)
-                      }}
-                    >
-                      💬 Chat with Landlord
-                    </button>
-                    <button
-                      className={`btn btn-icon ${favorites.some((fav) => fav._id === listing._id) ? "btn-favorite-active" : "btn-favorite"}`}
-                      onClick={() => toggleFavorite(listing)}
-                      aria-label={
-                        favorites.some((fav) => fav._id === listing._id) ? "Remove from favorites" : "Add to favorites"
-                      }
-                    >
-                      <Heart size={20} fill={favorites.some((fav) => fav._id === listing._id) ? "red" : "none"} />
-                    </button>
+          {featuredListings.length > 0 ? (
+            <div className="listings-grid">
+              {featuredListings.map((listing) => (
+                <div key={listing._id} className="listing-card">
+                  <img
+                    src={getImageUrl(listing.images[0]) || "/placeholder.svg"}
+                    alt={listing.title}
+                    className="listing-image"
+                    width={250}
+                    height={167}
+                    onError={handleImageError}
+                  />
+                  <div className="listing-details">
+                    <h3>{listing.title}</h3>
+                    <p className="listing-location">{listing.location}</p>
+                    <p className="listing-price">Rs {listing.price.toLocaleString()}/month</p>
+                    <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
+                    <div className="amenities">
+                      {listing.amenities.includes("parking") && <div className="amenity">🅿️ Parking</div>}
+                      {listing.amenities.includes("wifi") && <div className="amenity">📶 WiFi</div>}
+                      {listing.amenities.includes("water") && <div className="amenity">💧 Water</div>}
+                    </div>
+                    <div className="listing-actions">
+                      <button className="btn btn-primary btn-book" onClick={() => handleBookNow(listing)}>
+                        Book Now
+                      </button>
+                      <button
+                        className="btn btn-outline btn-chat"
+                        onClick={() => {
+                          setCurrentLandlord(listing.owner.name || "Landlord")
+                          setShowChat(true)
+                        }}
+                      >
+                        💬 Chat with Landlord
+                      </button>
+                      <button
+                        className={`btn btn-icon ${favorites.some((fav) => fav._id === listing._id) ? "btn-favorite-active" : "btn-favorite"}`}
+                        onClick={() => toggleFavorite(listing)}
+                        aria-label={
+                          favorites.some((fav) => fav._id === listing._id)
+                            ? "Remove from favorites"
+                            : "Add to favorites"
+                        }
+                      >
+                        <Heart size={20} fill={favorites.some((fav) => fav._id === listing._id) ? "red" : "none"} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-          {featuredListings.length > 0 && (
-            <div className="view-more-container">
-              <Link to="/rooms" className="btn btn-secondary">
-                View All Rooms
-              </Link>
+              ))}
             </div>
+          ) : (
+            <p>No featured rooms available at the moment.</p>
           )}
+          <div className="view-more-container">
+            <Link to="/rooms" className="btn btn-secondary">
+              View All Rooms
+            </Link>
+          </div>
         </div>
       </section>
 

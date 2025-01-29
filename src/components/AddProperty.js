@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api"
 import { addProperty } from "../services/api"
 import "./AddProperty.css"
+
+const mapContainerStyle = {
+  width: "100%",
+  height: "400px",
+}
+
+const center = {
+  lat: 27.7172, // Kathmandu, Nepal
+  lng: 85.324,
+}
 
 function AddProperty() {
   const [formData, setFormData] = useState({
@@ -9,6 +20,8 @@ function AddProperty() {
     description: "",
     price: "",
     location: "",
+    latitude: center.lat,
+    longitude: center.lng,
     bedrooms: "",
     bathrooms: "",
     furnished: false,
@@ -17,7 +30,11 @@ function AddProperty() {
     video: null,
   })
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [mapCenter, setMapCenter] = useState(center)
   const navigate = useNavigate()
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+  })
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -70,6 +87,17 @@ function AddProperty() {
       ...prevState,
       amenities: checked ? [...prevState.amenities, value] : prevState.amenities.filter((amenity) => amenity !== value),
     }))
+  }
+
+  const handleMapClick = (e) => {
+    const lat = e.latLng.lat()
+    const lng = e.latLng.lng()
+    setFormData((prevState) => ({
+      ...prevState,
+      latitude: lat,
+      longitude: lng,
+    }))
+    setMapCenter({ lat, lng })
   }
 
   const handleSubmit = async (e) => {
@@ -137,6 +165,9 @@ function AddProperty() {
     <div className="add-property-page">
       <header className="header">
         <h1>Add Your Property</h1>
+        <Link to="/" className="btn btn-secondary">
+          Back to Home
+        </Link>
       </header>
 
       <main className="add-property-content">
@@ -176,6 +207,42 @@ function AddProperty() {
                 value={formData.location}
                 onChange={handleInputChange}
                 required
+              />
+            </div>
+            <div className="form-group">
+              <label>Select Location on Map</label>
+              {isLoaded ? (
+                <GoogleMap mapContainerStyle={mapContainerStyle} center={mapCenter} zoom={10} onClick={handleMapClick}>
+                  <Marker position={mapCenter} />
+                </GoogleMap>
+              ) : loadError ? (
+                <div>Error loading maps</div>
+              ) : (
+                <div>Loading maps</div>
+              )}
+            </div>
+            <div className="form-group">
+              <label htmlFor="latitude">Latitude</label>
+              <input
+                type="number"
+                id="latitude"
+                name="latitude"
+                value={formData.latitude}
+                onChange={handleInputChange}
+                required
+                step="any"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="longitude">Longitude</label>
+              <input
+                type="number"
+                id="longitude"
+                name="longitude"
+                value={formData.longitude}
+                onChange={handleInputChange}
+                required
+                step="any"
               />
             </div>
             <div className="form-group">
