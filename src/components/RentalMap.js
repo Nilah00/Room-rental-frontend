@@ -129,4 +129,3 @@ function RentalMap() {
 }
 
 export default RentalMap;
-

@@ -1,34 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useLocation, Link } from 'react-router-dom';
-import { MapPin, Home } from 'lucide-react';
-import './BookNow.css';
+import React, { useState, useEffect } from "react"
+import { useParams, useLocation, Link } from "react-router-dom"
+import { MapPin, Home } from "lucide-react"
+import { getImageUrl, handleImageError } from "./imageUtils"
+import "./BookNow.css"
 
 const sampleVideos = [
   { url: "/sample-video1.mp4", description: "Living room tour" },
   { url: "/sample-video2.mp4", description: "Balcony view" },
-];
+]
 
 export default function BookNow() {
-  const { id } = useParams();
-  const location = useLocation();
-  const [roomDetails, setRoomDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showVideos, setShowVideos] = useState(false);
+  const { id } = useParams()
+  const location = useLocation()
+  const [roomDetails, setRoomDetails] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [showVideos, setShowVideos] = useState(false)
   const [bookingData, setBookingData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    moveInDate: '',
-    leaseDuration: '6',
+    name: "",
+    email: "",
+    phone: "",
+    moveInDate: "",
+    leaseDuration: "6",
     familyMembers: 1,
-    message: '',
-  });
+    message: "",
+  })
 
   useEffect(() => {
     const loadRoomDetails = async () => {
       try {
         if (location.state && location.state.roomDetails) {
-          setRoomDetails(location.state.roomDetails);
+          setRoomDetails(location.state.roomDetails)
         } else {
           setRoomDetails({
             id: id,
@@ -36,45 +37,45 @@ export default function BookNow() {
             price: 25000,
             furnished: true,
             location: "Sample Location",
-            image: "/placeholder.svg?height=300&width=400",
+            images: ["/placeholder.svg?height=300&width=400"],
             amenities: { parking: true, wifi: true, water: true },
             videos: [],
-          });
+          })
         }
       } catch (error) {
-        console.error('Error fetching room details:', error);
+        console.error("Error fetching room details:", error)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    loadRoomDetails();
-  }, [id, location.state]);
+    loadRoomDetails()
+  }, [id, location.state])
 
   const toggleShowVideos = () => {
-    setShowVideos((prev) => !prev);
-  };
+    setShowVideos((prev) => !prev)
+  }
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setBookingData((prev) => ({ ...prev, [name]: value }));
-  };
+    const { name, value } = e.target
+    setBookingData((prev) => ({ ...prev, [name]: value }))
+  }
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    alert('Booking details submitted successfully!');
-    console.log('Booking Details:', bookingData);
-  };
+    e.preventDefault()
+    alert("Booking details submitted successfully!")
+    console.log("Booking Details:", bookingData)
+  }
 
   if (loading) {
-    return <div className="book-now-container">Loading...</div>;
+    return <div className="book-now-container">Loading...</div>
   }
 
   if (!roomDetails) {
-    return <div className="book-now-container">Error loading room details.</div>;
+    return <div className="book-now-container">Error loading room details.</div>
   }
 
-  const videosToShow = roomDetails.videos && roomDetails.videos.length > 0 ? roomDetails.videos : sampleVideos;
+  const videosToShow = roomDetails.videos && roomDetails.videos.length > 0 ? roomDetails.videos : sampleVideos
 
   return (
     <div className="book-now-container">
@@ -91,17 +92,16 @@ export default function BookNow() {
           <section className="book-now-room-details">
             <div>
               <img
-                src={roomDetails.image}
+                src={getImageUrl(roomDetails.images[0]) || "/placeholder.svg"}
                 alt={roomDetails.title}
                 className="book-now-room-image"
+                onError={handleImageError}
               />
             </div>
             <div className="book-now-room-info">
               <h2 className="book-now-room-title">{roomDetails.title}</h2>
               <p className="book-now-room-price">Rs {roomDetails.price.toLocaleString()}/month</p>
-              <p className="book-now-room-status">
-                {roomDetails.furnished ? 'Furnished' : 'Unfurnished'}
-              </p>
+              <p className="book-now-room-status">{roomDetails.furnished ? "Furnished" : "Unfurnished"}</p>
               {roomDetails.location && (
                 <div className="book-now-location-info">
                   <MapPin size={20} />
@@ -123,7 +123,7 @@ export default function BookNow() {
           <section className="book-now-videos">
             <h3 className="book-now-videos-title">Room Videos</h3>
             <button onClick={toggleShowVideos} className="book-now-button">
-              {showVideos ? 'Hide Videos' : 'Show Videos'}
+              {showVideos ? "Hide Videos" : "Show Videos"}
             </button>
             {showVideos && (
               <div className="book-now-video-container">
@@ -235,7 +235,8 @@ export default function BookNow() {
                 onChange={handleInputChange}
                 className="book-now-input"
                 min="1"
-                required
+                require
+                d
               />
             </div>
 
@@ -261,6 +262,6 @@ export default function BookNow() {
         </main>
       </div>
     </div>
-  );
+  )
 }
 

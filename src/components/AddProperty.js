@@ -1,124 +1,136 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import './AddProperty.css';
+import React, { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { addProperty } from "../services/api"
+import "./AddProperty.css"
 
 function AddProperty() {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    price: '',
-    location: '',
-    bedrooms: '',
-    bathrooms: '',
+    title: "",
+    description: "",
+    price: "",
+    location: "",
+    bedrooms: "",
+    bathrooms: "",
     furnished: false,
     amenities: [],
-    imagePaths: [],
-    videoPath: ''
-  });
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const navigate = useNavigate();
+    images: [],
+    video: null,
+  })
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token")
     if (!token) {
-      setIsAuthenticated(false);
-      navigate('/login');
-      return;
+      setIsAuthenticated(false)
+      navigate("/login")
+      return
     }
 
     // Verify token validity
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const isExpired = payload.exp * 1000 < Date.now();
-      
+      const payload = JSON.parse(atob(token.split(".")[1]))
+      const isExpired = payload.exp * 1000 < Date.now()
+
       if (isExpired) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setIsAuthenticated(false);
-        navigate('/login');
+        localStorage.removeItem("token")
+        localStorage.removeItem("user")
+        setIsAuthenticated(false)
+        navigate("/login")
       } else {
-        setIsAuthenticated(true);
+        setIsAuthenticated(true)
       }
     } catch (error) {
-      console.error('Token validation error:', error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setIsAuthenticated(false);
-      navigate('/login');
+      console.error("Token validation error:", error)
+      localStorage.removeItem("token")
+      localStorage.removeItem("user")
+      setIsAuthenticated(false)
+      navigate("/login")
     }
-  }, [navigate]);
+  }, [navigate])
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prevState => ({
-      ...prevState,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
+    const { name, value, type, checked, files } = e.target
+    if (type === "file") {
+      setFormData((prevState) => ({
+        ...prevState,
+        [name]: name === "images" ? Array.from(files) : files[0],
+      }))
+    } else {
+      setFormData((prevState) => ({
+        ...prevState,
+        [name]: type === "checkbox" ? checked : value,
+      }))
+    }
+  }
 
   const handleAmenityChange = (e) => {
-    const { value, checked } = e.target;
-    setFormData(prevState => ({
+    const { value, checked } = e.target
+    setFormData((prevState) => ({
       ...prevState,
-      amenities: checked
-        ? [...prevState.amenities, value]
-        : prevState.amenities.filter(amenity => amenity !== value)
-    }));
-  };
-
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    const paths = files.map(file => URL.createObjectURL(file));
-    setFormData(prevState => ({
-      ...prevState,
-      imagePaths: [...prevState.imagePaths, ...paths]
-    }));
-  };
-
-  const handleVideoUpload = (e) => {
-    const file = e.target.files[0];
-    const path = URL.createObjectURL(file);
-    setFormData(prevState => ({
-      ...prevState,
-      videoPath: path
-    }));
-  };
+      amenities: checked ? [...prevState.amenities, value] : prevState.amenities.filter((amenity) => amenity !== value),
+    }))
+  }
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('Please login to add a property');
-        navigate('/login');
-        return;
+      const formDataToSend = new FormData()
+      for (const key in formData) {
+        if (key === "images") {
+          formData[key].forEach((image, index) => {
+            formDataToSend.append(`images`, image)
+          })
+        } else if (key === "video") {
+          if (formData[key]) {
+            formDataToSend.append("video", formData[key])
+          }
+        } else if (key === "amenities") {
+          formDataToSend.append(key, JSON.stringify(formData[key]))
+        } else if (key === "price" || key === "bedrooms" || key === "bathrooms") {
+          formDataToSend.append(key, Number(formData[key]))
+        } else {
+          formDataToSend.append(key, formData[key])
+        }
       }
 
-      const response = await axios.post('http://localhost:5000/api/properties', formData, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      console.log('Property added:', response.data);
-      alert('Property added successfully!');
-      navigate('/rooms');
+      console.log("Sending data:", Object.fromEntries(formDataToSend))
+      const response = await addProperty(formDataToSend)
+      console.log("Property added:", response.data)
+
+      // Show success message with the first image path
+      const firstImagePath = response.data.images[0]
+      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000"
+      const fullImageUrl = `${API_URL}/${firstImagePath}`
+
+      alert(`Property added successfully!\nImage path: ${fullImageUrl}`)
+      navigate("/rooms")
     } catch (error) {
-      console.error('Error details:', error);
-      if (error.response?.status === 403 || error.response?.data?.message?.includes('token')) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        alert('Session expired. Please login again.');
-        navigate('/login');
+      console.error("Error details:", error)
+      if (error.response) {
+        console.error("Response data:", error.response.data)
+        console.error("Response status:", error.response.status)
+        console.error("Response headers:", error.response.headers)
+      } else if (error.request) {
+        console.error("No response received:", error.request)
       } else {
-        alert(`Failed to add property. ${error.response?.data?.message || error.message}`);
+        console.error("Error message:", error.message)
+      }
+      console.error("Error config:", error.config)
+
+      if (error.response?.status === 403 || error.response?.data?.message?.includes("token")) {
+        localStorage.removeItem("token")
+        localStorage.removeItem("user")
+        alert("Session expired. Please login again.")
+        navigate("/login")
+      } else {
+        alert(`Failed to add property. ${error.response?.data?.message || error.message}`)
       }
     }
-  };
+  }
 
   if (!isAuthenticated) {
-    return null;
+    return null
   }
 
   return (
@@ -132,14 +144,7 @@ function AddProperty() {
           <form onSubmit={handleSubmit} className="add-property-form">
             <div className="form-group">
               <label htmlFor="title">Title</label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                required
-              />
+              <input type="text" id="title" name="title" value={formData.title} onChange={handleInputChange} required />
             </div>
             <div className="form-group">
               <label htmlFor="description">Description</label>
@@ -208,56 +213,49 @@ function AddProperty() {
             <div className="form-group">
               <label>Amenities</label>
               <div className="amenities-group">
-                {['AC', 'WiFi', 'Parking', 'Water', 'TV', 'Washing Machine', 'Refrigerator', 'Microwave'].map((amenity) => (
-                  <div key={amenity} className="amenity-item">
-                    <input
-                      type="checkbox"
-                      id={amenity.toLowerCase()}
-                      name="amenities"
-                      value={amenity.toLowerCase()}
-                      checked={formData.amenities.includes(amenity.toLowerCase())}
-                      onChange={handleAmenityChange}
-                    />
-                    <label htmlFor={amenity.toLowerCase()}>{amenity}</label>
-                  </div>
-                ))}
+                {["AC", "WiFi", "Parking", "Water", "TV", "Washing Machine", "Refrigerator", "Microwave"].map(
+                  (amenity) => (
+                    <div key={amenity} className="amenity-item">
+                      <input
+                        type="checkbox"
+                        id={amenity.toLowerCase()}
+                        name="amenities"
+                        value={amenity.toLowerCase()}
+                        checked={formData.amenities.includes(amenity.toLowerCase())}
+                        onChange={handleAmenityChange}
+                      />
+                      <label htmlFor={amenity.toLowerCase()}>{amenity}</label>
+                    </div>
+                  ),
+                )}
               </div>
             </div>
             <div className="form-group">
               <label htmlFor="images">Upload Images</label>
-              <input
-                type="file"
-                id="images"
-                name="images"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-              />
-              {formData.imagePaths.map((path, index) => (
+              <input type="file" id="images" name="images" accept="image/*" multiple onChange={handleInputChange} />
+              {formData.images.map((file, index) => (
                 <div key={index}>
-                  <img src={path} alt={`Uploaded ${index + 1}`} style={{width: '100px', height: '100px'}} />
-                  <p>Image Path: {path}</p>
+                  <img
+                    src={URL.createObjectURL(file) || "/placeholder.svg"}
+                    alt={`Uploaded ${index + 1}`}
+                    style={{ width: "100px", height: "100px" }}
+                  />
                 </div>
               ))}
             </div>
             <div className="form-group">
               <label htmlFor="video">Upload Video</label>
-              <input
-                type="file"
-                id="video"
-                name="video"
-                accept="video/*"
-                onChange={handleVideoUpload}
-              />
-              {formData.videoPath && (
+              <input type="file" id="video" name="video" accept="video/*" onChange={handleInputChange} />
+              {formData.video && (
                 <div>
-                  <video src={formData.videoPath} style={{width: '200px'}} controls />
-                  <p>Video Path: {formData.videoPath}</p>
+                  <video src={URL.createObjectURL(formData.video)} style={{ width: "200px" }} controls />
                 </div>
               )}
             </div>
             <div className="button-group">
-              <button type="submit" className="btn btn-primary">Add Property</button>
+              <button type="submit" className="btn btn-primary">
+                Add Property
+              </button>
             </div>
           </form>
         </div>
@@ -267,8 +265,8 @@ function AddProperty() {
         <p>&copy; 2024 RoomRental. All rights reserved.</p>
       </footer>
     </div>
-  );
+  )
 }
 
-export default AddProperty;
+export default AddProperty
 

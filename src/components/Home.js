@@ -1,184 +1,131 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Star, Bell, MessageCircle, Heart, User, Edit, Trash2 } from 'lucide-react';
-import axios from 'axios';
-import './Home.css';
-import './RentalMap.css';
-import ChatBox from './ChatBox';
-import RentalMap from './RentalMap';
-
-const featuredListings = [
-  {
-    id: 1,
-    title: "Spacious room in Thamel",
-    price: 25000,
-    furnished: true,
-    amenities: {
-      parking: true,
-      wifi: true,
-      water: true
-    },
-    image: "/room1.jpg",
-    landlordName: "Nifiya Shrestha"
-  },
-  {
-    id: 2,
-    title: "Spacious Apartment in Patan",
-    price: 35000,
-    furnished: false,
-    amenities: {
-      parking: true,
-      wifi: true,
-      water: false
-    },
-    image: "/room2.jpeg",
-    landlordName: "Nitika Suwal"
-  },
-  {
-    id: 3,
-    title: "Modern Loft in Lazimpat",
-    price: 30000,
-    furnished: true,
-    amenities: {
-      parking: false,
-      wifi: true,
-      water: true
-    },
-    image: "/room3.jpg",
-    landlordName: "Sara Lamichhane"
-  }
-];
-
-const testimonials = [
-  {
-    id: 1,
-    name: "Aarav Sharma",
-    role: "Tenant",
-    content: "RoomRental made finding a comfortable and affordable room near my university so easy. The landlord communication feature was a game-changer!",
-    rating: 5,
-  },
-  {
-    id: 2,
-    name: "Sita Gurung",
-    role: "Landlord",
-    content: "As a property owner, RoomRental has simplified the process of finding reliable tenants. The platform's reach and user-friendly interface have helped me rent out my properties quickly and efficiently.",
-    rating: 5,
-  },
-  {
-    id: 3,
-    name: "Bikash Rai",
-    role: "Tenant",
-    content: "As someone who moves frequently for work, RoomRental has been a lifesaver. It's so convenient to find furnished rooms with all the amenities I need.",
-    rating: 5,
-  },
-];
+import React, { useState, useEffect } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { Star, Bell, MessageCircle, Heart, User, Edit, Trash2 } from "lucide-react"
+import axios from "axios"
+import "./Home.css"
+import "./RentalMap.css"
+import ChatBox from "./ChatBox"
+import RentalMap from "./RentalMap"
+import { getImageUrl, handleImageError } from "./imageUtils"
 
 function Home() {
   const [searchParams, setSearchParams] = useState({
-    location: '',
-    priceRange: '',
-    furnished: '',
-  });
+    location: "",
+    priceRange: "",
+    furnished: "",
+  })
 
-  const [favorites, setFavorites] = useState([]);
-  const [showChat, setShowChat] = useState(false);
-  const [currentLandlord, setCurrentLandlord] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [username, setUsername] = useState('');
-  const [userProperties, setUserProperties] = useState([]);
+  const [favorites, setFavorites] = useState([])
+  const [showChat, setShowChat] = useState(false)
+  const [currentLandlord, setCurrentLandlord] = useState("")
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [username, setUsername] = useState("")
+  const [userProperties, setUserProperties] = useState([])
+  const [featuredListings, setFeaturedListings] = useState([])
 
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = JSON.parse(localStorage.getItem('user'));
+    const token = localStorage.getItem("token")
+    const storedUser = JSON.parse(localStorage.getItem("user"))
     if (token && storedUser) {
-      setIsLoggedIn(true);
-      setUsername(storedUser.name);
-      fetchUserProperties(token);
+      setIsLoggedIn(true)
+      setUsername(storedUser.name)
+      fetchUserProperties(token)
     } else {
-      setIsLoggedIn(false);
+      setIsLoggedIn(false)
     }
 
-    const storedFavorites = localStorage.getItem('favorites');
+    const storedFavorites = localStorage.getItem("favorites")
     if (storedFavorites) {
-      setFavorites(JSON.parse(storedFavorites));
+      setFavorites(JSON.parse(storedFavorites))
     }
-  }, []);
+
+    fetchFeaturedListings()
+  }, [])
 
   const fetchUserProperties = async (token) => {
     try {
-      const response = await axios.get('http://localhost:5000/api/user/properties', {
+      const response = await axios.get("http://localhost:5000/api/user/properties", {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      setUserProperties(response.data);
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      setUserProperties(response.data)
     } catch (error) {
-      console.error('Error fetching user properties:', error);
+      console.error("Error fetching user properties:", error)
     }
-  };
+  }
+
+  const fetchFeaturedListings = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/properties/featured")
+      setFeaturedListings(response.data)
+    } catch (error) {
+      console.error("Error fetching featured listings:", error)
+    }
+  }
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setSearchParams(prev => ({
+    const { name, value } = e.target
+    setSearchParams((prev) => ({
       ...prev,
-      [name]: value
-    }));
-  };
+      [name]: value,
+    }))
+  }
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    const searchQuery = new URLSearchParams(searchParams).toString();
-    navigate(`/rooms?${searchQuery}`);
-  };
+    e.preventDefault()
+    const searchQuery = new URLSearchParams(searchParams).toString()
+    navigate(`/rooms?${searchQuery}`)
+  }
 
   const toggleFavorite = (listing) => {
-    setFavorites(prev => {
-      const listingId = listing.id;
-      const newFavorites = prev.some(fav => fav.id === listingId)
-        ? prev.filter(fav => fav.id !== listingId)
-        : [...prev, listing];
-    
-      localStorage.setItem('favorites', JSON.stringify(newFavorites));
-    
-      return newFavorites;
-    });
-  };
+    setFavorites((prev) => {
+      const listingId = listing._id
+      const newFavorites = prev.some((fav) => fav._id === listingId)
+        ? prev.filter((fav) => fav._id !== listingId)
+        : [...prev, listing]
+
+      localStorage.setItem("favorites", JSON.stringify(newFavorites))
+
+      return newFavorites
+    })
+  }
 
   const handleBookNow = (listing) => {
-    navigate(`/booknow/${listing.id}`, { state: { roomDetails: listing } });
-  };
+    navigate(`/booknow/${listing._id}`, { state: { roomDetails: listing } })
+  }
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setIsLoggedIn(false);
-    setUsername('');
-    setUserProperties([]);
-    navigate('/');
-  };
+    localStorage.removeItem("token")
+    localStorage.removeItem("user")
+    setIsLoggedIn(false)
+    setUsername("")
+    setUserProperties([])
+    navigate("/")
+  }
 
   const handleEditProperty = (propertyId) => {
-    navigate(`/edit-property/${propertyId}`);
-  };
+    navigate(`/edit-property/${propertyId}`)
+  }
 
   const handleDeleteProperty = async (propertyId) => {
-    if (window.confirm('Are you sure you want to delete this property?')) {
+    if (window.confirm("Are you sure you want to delete this property?")) {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token")
         await axios.delete(`http://localhost:5000/api/properties/${propertyId}`, {
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        setUserProperties(prev => prev.filter(prop => prop._id !== propertyId));
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        setUserProperties((prev) => prev.filter((prop) => prop._id !== propertyId))
       } catch (error) {
-        console.error('Error deleting property:', error);
+        console.error("Error deleting property:", error)
       }
     }
-  };
+  }
 
   return (
     <div className="home-page">
@@ -190,10 +137,26 @@ function Home() {
           </Link>
           <nav className="main-nav">
             <ul className="nav-links">
-              <li><Link to="/services" className="nav-link">Services</Link></li>
-              <li><Link to="/about" className="nav-link">About Us</Link></li>
-              <li><Link to="/saved" className="nav-link">Saved</Link></li>
-              <li><Link to="/add-property" className="nav-link">Add Property</Link></li>
+              <li>
+                <Link to="/services" className="nav-link">
+                  Services
+                </Link>
+              </li>
+              <li>
+                <Link to="/about" className="nav-link">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/saved" className="nav-link">
+                  Saved
+                </Link>
+              </li>
+              <li>
+                <Link to="/add-property" className="nav-link">
+                  Add Property
+                </Link>
+              </li>
             </ul>
             <div className="nav-actions">
               <div className="nav-icons">
@@ -212,17 +175,29 @@ function Home() {
                   </div>
                   {showDropdown && (
                     <div className="dropdown-menu">
-                      <Link to="/profile" className="dropdown-item">Personal Information</Link>
-                      <Link to="/settings" className="dropdown-item">Settings</Link>
-                      <Link to="/manage-properties" className="dropdown-item">Manage Properties ({userProperties.length})</Link>
-                      <button onClick={handleLogout} className="dropdown-item">Logout</button>
+                      <Link to="/profile" className="dropdown-item">
+                        Personal Information
+                      </Link>
+                      <Link to="/settings" className="dropdown-item">
+                        Settings
+                      </Link>
+                      <Link to="/manage-properties" className="dropdown-item">
+                        Manage Properties ({userProperties.length})
+                      </Link>
+                      <button onClick={handleLogout} className="dropdown-item">
+                        Logout
+                      </button>
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="auth-buttons">
-                  <Link to="/login" className="btn btn-outline">Sign In</Link>
-                  <Link to="/register" className="btn btn-primary">Sign Up</Link>
+                  <Link to="/login" className="btn btn-outline">
+                    Sign In
+                  </Link>
+                  <Link to="/register" className="btn btn-primary">
+                    Sign Up
+                  </Link>
                 </div>
               )}
             </div>
@@ -242,27 +217,21 @@ function Home() {
               value={searchParams.location}
               onChange={handleInputChange}
             />
-            <select
-              name="priceRange"
-              value={searchParams.priceRange}
-              onChange={handleInputChange}
-            >
+            <select name="priceRange" value={searchParams.priceRange} onChange={handleInputChange}>
               <option value="">Price Range</option>
               <option value="0-15000">Rs 0 - Rs 15,000</option>
               <option value="15001-25000">Rs 15,001 - Rs 25,000</option>
               <option value="25001-35000">Rs 25,001 - Rs 35,000</option>
               <option value="35001+">Rs 35,001+</option>
             </select>
-            <select
-              name="furnished"
-              value={searchParams.furnished}
-              onChange={handleInputChange}
-            >
+            <select name="furnished" value={searchParams.furnished} onChange={handleInputChange}>
               <option value="">Furnished Status</option>
               <option value="furnished">Furnished</option>
               <option value="unfurnished">Unfurnished</option>
             </select>
-            <button type="submit" className="btn btn-primary">Search Rooms</button>
+            <button type="submit" className="btn btn-primary">
+              Search Rooms
+            </button>
           </form>
         </div>
       </section>
@@ -281,7 +250,12 @@ function Home() {
             <div className="properties-grid">
               {userProperties.map((property) => (
                 <div key={property._id} className="property-card">
-                  <img src={property.images[0] || '/placeholder.jpg'} alt={property.title} className="property-image" />
+                  <img
+                    src={getImageUrl(property.images[0]) || "/placeholder.svg"}
+                    alt={property.title}
+                    className="property-image"
+                    onError={handleImageError}
+                  />
                   <div className="property-details">
                     <h3>{property.title}</h3>
                     <p>{property.location}</p>
@@ -299,7 +273,9 @@ function Home() {
               ))}
             </div>
             <div className="view-more-container">
-              <Link to="/manage-property" className="btn btn-primary">Manage All Properties</Link>
+              <Link to="/manage-properties" className="btn btn-primary">
+                Manage All Properties
+              </Link>
             </div>
           </div>
         </section>
@@ -310,62 +286,58 @@ function Home() {
           <h2>Featured Rooms</h2>
           <div className="listings-grid">
             {featuredListings.map((listing) => (
-              <div key={listing.id} className="listing-card">
-                <img 
-                  src={listing.image} 
-                  alt={listing.title} 
-                  className="listing-image" 
+              <div key={listing._id} className="listing-card">
+                <img
+                  src={getImageUrl(listing.images[0]) || "/placeholder.svg"}
+                  alt={listing.title}
+                  className="listing-image"
                   width={250}
                   height={167}
+                  onError={handleImageError}
                 />
                 <div className="listing-details">
                   <h3>{listing.title}</h3>
                   <p className="listing-price">Rs {listing.price.toLocaleString()}/month</p>
-                  <p className="furnished-status">
-                    {listing.furnished ? 'Furnished' : 'Unfurnished'}
-                  </p>
+                  <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
                   <div className="amenities">
-                    {listing.amenities.parking && (
-                      <div className="amenity">🅿️ Parking</div>
-                    )}
-                    {listing.amenities.wifi && (
-                      <div className="amenity">📶 WiFi</div>
-                    )}
-                    {listing.amenities.water && (
-                      <div className="amenity">💧 Water</div>
-                    )}
+                    {listing.amenities.includes("parking") && <div className="amenity">🅿️ Parking</div>}
+                    {listing.amenities.includes("wifi") && <div className="amenity">📶 WiFi</div>}
+                    {listing.amenities.includes("water") && <div className="amenity">💧 Water</div>}
                   </div>
                   <div className="listing-actions">
-                    <button 
-                      className="btn btn-primary btn-book"
-                      onClick={() => handleBookNow(listing)}
-                    >
+                    <button className="btn btn-primary btn-book" onClick={() => handleBookNow(listing)}>
                       Book Now
                     </button>
-                    <button 
+                    <button
                       className="btn btn-outline btn-chat"
                       onClick={() => {
-                        setCurrentLandlord(listing.landlordName || 'Landlord');
-                        setShowChat(true);
+                        setCurrentLandlord(listing.owner.name || "Landlord")
+                        setShowChat(true)
                       }}
                     >
                       💬 Chat with Landlord
                     </button>
-                    <button 
-                      className={`btn btn-icon ${favorites.some(fav => fav.id === listing.id) ? 'btn-favorite-active' : 'btn-favorite'}`} 
+                    <button
+                      className={`btn btn-icon ${favorites.some((fav) => fav._id === listing._id) ? "btn-favorite-active" : "btn-favorite"}`}
                       onClick={() => toggleFavorite(listing)}
-                      aria-label={favorites.some(fav => fav.id === listing.id) ? "Remove from favorites" : "Add to favorites"}
+                      aria-label={
+                        favorites.some((fav) => fav._id === listing._id) ? "Remove from favorites" : "Add to favorites"
+                      }
                     >
-                      <Heart size={20} fill={favorites.some(fav => fav.id === listing.id) ? "red" : "none"} />
+                      <Heart size={20} fill={favorites.some((fav) => fav._id === listing._id) ? "red" : "none"} />
                     </button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <div className="view-more-container">
-            <Link to="/rooms" className="btn btn-secondary">View All Rooms</Link>
-          </div>
+          {featuredListings.length > 0 && (
+            <div className="view-more-container">
+              <Link to="/rooms" className="btn btn-secondary">
+                View All Rooms
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
@@ -373,7 +345,9 @@ function Home() {
         <div className="container">
           <h2>Are You a Landlord?</h2>
           <p>List your room on RoomRental and connect with thousands of potential tenants.</p>
-          <Link to="/add-property" className="btn btn-primary btn-small btn-center">Add Your Property</Link>
+          <Link to="/add-property" className="btn btn-primary btn-small btn-center">
+            Add Your Property
+          </Link>
         </div>
       </section>
 
@@ -384,7 +358,10 @@ function Home() {
             <div className="step">
               <div className="step-icon">🔍</div>
               <h3>Search</h3>
-              <p>Browse through our extensive list of available rooms in Nepal and apply filters to find your perfect match.</p>
+              <p>
+                Browse through our extensive list of available rooms in Nepal and apply filters to find your perfect
+                match.
+              </p>
             </div>
             <div className="step">
               <div className="step-icon">💬</div>
@@ -427,7 +404,32 @@ function Home() {
         <div className="container">
           <h2>What Our Users Say</h2>
           <div className="testimonials-grid">
-            {testimonials.map((testimonial) => (
+            {[
+              {
+                id: 1,
+                name: "Aarav Sharma",
+                role: "Tenant",
+                content:
+                  "RoomRental made finding a comfortable and affordable room near my university so easy. The landlord communication feature was a game-changer!",
+                rating: 5,
+              },
+              {
+                id: 2,
+                name: "Sita Gurung",
+                role: "Landlord",
+                content:
+                  "As a property owner, RoomRental has simplified the process of finding reliable tenants. The platform's reach and user-friendly interface have helped me rent out my properties quickly and efficiently.",
+                rating: 5,
+              },
+              {
+                id: 3,
+                name: "Bikash Rai",
+                role: "Tenant",
+                content:
+                  "As someone who moves frequently for work, RoomRental has been a lifesaver. It's so convenient to find furnished rooms with all the amenities I need.",
+                rating: 5,
+              },
+            ].map((testimonial) => (
               <div key={testimonial.id} className="testimonial-card">
                 <p className="testimonial-content">{testimonial.content}</p>
                 <div className="testimonial-author">
@@ -436,10 +438,7 @@ function Home() {
                 </div>
                 <div className="testimonial-rating">
                   {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={i < testimonial.rating ? "star-filled" : "star-empty"}
-                    />
+                    <Star key={i} className={i < testimonial.rating ? "star-filled" : "star-empty"} />
                   ))}
                 </div>
               </div>
@@ -458,17 +457,29 @@ function Home() {
             <div className="footer-section">
               <h3>Quick Links</h3>
               <ul>
-                <li><Link to="/search">Search Rooms</Link></li>
-                <li><Link to="/add-property">List Your Property</Link></li>
-                <li><Link to="/about">About Us</Link></li>
-                <li><Link to="/contact">Contact</Link></li>
+                <li>
+                  <Link to="/search">Search Rooms</Link>
+                </li>
+                <li>
+                  <Link to="/add-property">List Your Property</Link>
+                </li>
+                <li>
+                  <Link to="/about">About Us</Link>
+                </li>
+                <li>
+                  <Link to="/contact">Contact</Link>
+                </li>
               </ul>
             </div>
             <div className="footer-section">
               <h3>Legal</h3>
               <ul>
-                <li><Link to="/terms">Terms of Service</Link></li>
-                <li><Link to="/privacy">Privacy Policy</Link></li>
+                <li>
+                  <Link to="/terms">Terms of Service</Link>
+                </li>
+                <li>
+                  <Link to="/privacy">Privacy Policy</Link>
+                </li>
               </ul>
             </div>
           </div>
@@ -477,15 +488,10 @@ function Home() {
           </div>
         </div>
       </footer>
-      {showChat && (
-        <ChatBox
-          onClose={() => setShowChat(false)}
-          landlordName={currentLandlord}
-        />
-      )}
+      {showChat && <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} />}
     </div>
-  );
+  )
 }
 
-export default Home;
+export default Home
 
