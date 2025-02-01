@@ -13,4 +13,3 @@ export const handleImageError = (e) => {
   e.target.onerror = null // Prevent infinite loop
   e.target.src = "/placeholder.svg"
 }
-

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api"
-import { addProperty } from "../services/api"
+import { addProperty, getFeaturedProperties } from "../services/api"
 import "./AddProperty.css"
 
 const mapContainerStyle = {
@@ -69,10 +69,18 @@ function AddProperty() {
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target
     if (type === "file") {
-      setFormData((prevState) => ({
-        ...prevState,
-        [name]: name === "images" ? Array.from(files) : files[0],
-      }))
+      if (name === "images") {
+        const imageFiles = Array.from(files).slice(0, 10) // Limit to 10 images
+        setFormData((prevState) => ({
+          ...prevState,
+          [name]: imageFiles,
+        }))
+      } else {
+        setFormData((prevState) => ({
+          ...prevState,
+          [name]: files[0],
+        }))
+      }
     } else {
       setFormData((prevState) => ({
         ...prevState,
@@ -126,13 +134,15 @@ function AddProperty() {
       const response = await addProperty(formDataToSend)
       console.log("Property added:", response.data)
 
-      // Show success message with the first image path
-      const firstImagePath = response.data.images[0]
-      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000"
-      const fullImageUrl = `${API_URL}/${firstImagePath}`
+      // Refresh featured listings and navigate to home page
+      await getFeaturedProperties()
 
-      alert(`Property added successfully!\nImage path: ${fullImageUrl}`)
-      navigate("/rooms")
+      // Show success message
+      alert("Property added successfully!")
+      navigate("/")
+
+      // Force reload the page to show updated listings
+      window.location.reload()
     } catch (error) {
       console.error("Error details:", error)
       if (error.response) {
@@ -154,6 +164,15 @@ function AddProperty() {
       } else {
         alert(`Failed to add property. ${error.response?.data?.message || error.message}`)
       }
+    }
+  }
+
+  const refreshFeaturedListings = async () => {
+    try {
+      await getFeaturedProperties()
+      console.log("Featured listings refreshed")
+    } catch (error) {
+      console.error("Error refreshing featured listings:", error)
     }
   }
 
@@ -298,8 +317,9 @@ function AddProperty() {
               </div>
             </div>
             <div className="form-group">
-              <label htmlFor="images">Upload Images</label>
+              <label htmlFor="images">Upload Images (Max 10)</label>
               <input type="file" id="images" name="images" accept="image/*" multiple onChange={handleInputChange} />
+              {formData.images.length > 0 && <p>{formData.images.length} image(s) selected</p>}
               {formData.images.map((file, index) => (
                 <div key={index}>
                   <img
@@ -309,6 +329,7 @@ function AddProperty() {
                   />
                 </div>
               ))}
+              {formData.images.length >= 10 && <p className="text-warning">Maximum number of images reached (10)</p>}
             </div>
             <div className="form-group">
               <label htmlFor="video">Upload Video</label>

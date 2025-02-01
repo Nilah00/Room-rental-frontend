@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import axios from "axios"
-import { Heart } from "lucide-react"
+import { Heart, Eye } from "lucide-react"
 import ChatBox from "./ChatBox"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import "./ViewAllRoom.css"
@@ -19,9 +19,15 @@ function ViewAllRooms() {
   const [currentLandlord, setCurrentLandlord] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   const navigate = useNavigate()
   const location = useLocation()
+
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+    setIsLoggedIn(!!token)
+  }, [])
 
   const handleSearch = useCallback(() => {
     const filtered = rooms.filter((room) => {
@@ -60,14 +66,14 @@ function ViewAllRooms() {
 
   useEffect(() => {
     handleSearch()
-  }, [searchParams, handleSearch]) // Removed unnecessary 'rooms' dependency
+  }, [searchParams, handleSearch])
 
   const fetchRooms = async () => {
     setIsLoading(true)
     setError(null)
     try {
       const response = await axios.get("http://localhost:5000/api/properties")
-      console.log("Fetched rooms:", response.data) // Debug log
+      console.log("Fetched rooms:", response.data)
       setRooms(response.data)
       setFilteredRooms(response.data)
     } catch (error) {
@@ -106,6 +112,10 @@ function ViewAllRooms() {
   }
 
   const handleChatWithLandlord = (landlordName) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
     setCurrentLandlord(landlordName)
     setShowChat(true)
   }
@@ -154,12 +164,19 @@ function ViewAllRooms() {
         <div className="listings-grid">
           {filteredRooms.map((room) => (
             <div key={room._id} className="listing-card">
-              <img
-                src={getImageUrl(room.images[0]) || "/placeholder.svg"}
-                alt={room.title}
-                className="listing-image"
-                onError={handleImageError}
-              />
+              <div className="listing-image-container">
+                <img
+                  src={getImageUrl(room.images[0]) || "/placeholder.svg"}
+                  alt={room.title}
+                  className="listing-image"
+                  onError={handleImageError}
+                />
+                <div className="listing-overlay">
+                  <Link to={`/room/${room._id}`} className="btn btn-primary btn-view">
+                    <Eye size={20} /> View
+                  </Link>
+                </div>
+              </div>
               <div className="listing-details">
                 <h3>{room.title}</h3>
                 <p className="listing-location">{room.location}</p>
@@ -191,7 +208,9 @@ function ViewAllRooms() {
           ))}
         </div>
       </div>
-      {showChat && <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} />}
+      {showChat && (
+        <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} isLoggedIn={isLoggedIn} />
+      )}
     </div>
   )
 }

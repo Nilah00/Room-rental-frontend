@@ -60,4 +60,3 @@ const PropertyCard = ({ property }) => {
 }
 
 export default PropertyCard
-

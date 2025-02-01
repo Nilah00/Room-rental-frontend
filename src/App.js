@@ -1,15 +1,15 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Home from './components/Home';
-import Services from './components/Services';
-import About from './components/About';
-import AddProperty from './components/AddProperty';
-import Login from './components/Login';
-import Register from './components/Register';
-import BookNow from './components/BookNow';
-import ViewAllRooms from './components/ViewAllRoom';
-import Saved from './components/Saved';
-import ManageProperties from './components/ManageProperty';
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom"
+import Home from "./components/Home"
+import Services from "./components/Services"
+import About from "./components/About"
+import AddProperty from "./components/AddProperty"
+import Login from "./components/Login"
+import Register from "./components/Register"
+import BookNow from "./components/BookNow"
+import ViewAllRooms from "./components/ViewAllRoom"
+import Saved from "./components/Saved"
+import ManageProperties from "./components/ManageProperty"
+import RoomDetail from "./components/RoomDetail"
 
 function App() {
   return (
@@ -23,12 +23,13 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/booknow/:id" element={<BookNow />} />
         <Route path="/rooms" element={<ViewAllRooms />} />
-        <Route path="/saved" element={<Saved />}/>
-        <Route path="/manage-properties" element={<ManageProperties/>}/>
+        <Route path="/saved" element={<Saved />} />
+        <Route path="/manage-properties" element={<ManageProperties />} />
+        <Route path="/room/:id" element={<RoomDetail />} />
       </Routes>
     </Router>
-  );
+  )
 }
 
-export default App;
+export default App
 

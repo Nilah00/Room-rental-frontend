@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Heart, Bell, MessageCircle, User } from "lucide-react"
 import ChatBox from "./ChatBox"
@@ -14,20 +14,24 @@ const Saved = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
-    setSavedListings(storedFavorites)
-
     const token = localStorage.getItem("token")
     const storedUser = JSON.parse(localStorage.getItem("user"))
     if (token && storedUser) {
       setIsLoggedIn(true)
       setUsername(storedUser.name)
+      const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
+      setSavedListings(storedFavorites)
     } else {
       setIsLoggedIn(false)
+      navigate("/login")
     }
-  }, [])
+  }, [navigate])
 
   const removeFavorite = (listingId) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
     setSavedListings((prev) => {
       const newListings = prev.filter((listing) => (listing.id || listing._id) !== listingId)
       localStorage.setItem("favorites", JSON.stringify(newListings))
@@ -36,6 +40,10 @@ const Saved = () => {
   }
 
   const handleBookNow = (listing) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
     navigate(`/booknow/${listing.id}`, { state: { roomDetails: listing } })
   }
 
@@ -44,6 +52,15 @@ const Saved = () => {
     localStorage.removeItem("user")
     setIsLoggedIn(false)
     navigate("/")
+  }
+
+  const handleChatWithLandlord = (landlordName) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
+    setCurrentLandlord(landlordName)
+    setShowChat(true)
   }
 
   return (
@@ -163,10 +180,7 @@ const Saved = () => {
                       </button>
                       <button
                         className="btn btn-outline btn-chat"
-                        onClick={() => {
-                          setCurrentLandlord(listing.owner?.name || "Landlord")
-                          setShowChat(true)
-                        }}
+                        onClick={() => handleChatWithLandlord(listing.owner?.name || "Landlord")}
                       >
                         💬 Chat with Landlord
                       </button>
@@ -184,7 +198,9 @@ const Saved = () => {
           )}
         </div>
       </section>
-      {showChat && <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} />}
+      {showChat && (
+        <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} isLoggedIn={isLoggedIn} />
+      )}
     </div>
   )
 }

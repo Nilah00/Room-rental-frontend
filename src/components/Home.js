@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from "react"
+"use client"
+
+import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Star, Bell, MessageCircle, Heart, User, Edit, Trash2 } from "lucide-react"
-import axios from "axios"
+import { Star, Bell, MessageCircle, User, Edit, Trash2, Eye, Heart } from "lucide-react"
 import "./Home.css"
 import "./RentalMap.css"
 import ChatBox from "./ChatBox"
 import RentalMap from "./RentalMap"
 import { getImageUrl, handleImageError } from "./imageUtils"
+import { getFeaturedProperties, getUserProperties, deleteProperty, getFavorites } from "../services/api"
+import { isAuthenticated, logout } from "../services/auth" // Updated import statement
 
-function Home() {
+const Home = () => {
   const [searchParams, setSearchParams] = useState({
     location: "",
     priceRange: "",
@@ -23,50 +26,57 @@ function Home() {
   const [username, setUsername] = useState("")
   const [userProperties, setUserProperties] = useState([])
   const [featuredListings, setFeaturedListings] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const navigate = useNavigate()
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    const storedUser = JSON.parse(localStorage.getItem("user"))
-    if (token && storedUser) {
-      setIsLoggedIn(true)
-      setUsername(storedUser.name)
-      fetchUserProperties(token)
-    } else {
-      setIsLoggedIn(false)
+    const fetchData = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const authStatus = isAuthenticated()
+        setIsLoggedIn(authStatus)
+
+        if (authStatus) {
+          const user = JSON.parse(localStorage.getItem("user"))
+          setUsername(user.name)
+
+          try {
+            const [userPropsResponse, favoritesResponse] = await Promise.all([getUserProperties(), getFavorites()])
+            setUserProperties(userPropsResponse.data)
+            setFavorites(favoritesResponse.data)
+          } catch (userDataError) {
+            console.error("Error fetching user data:", userDataError)
+          }
+        } else {
+          setIsLoggedIn(false)
+        }
+
+        const storedFavorites = localStorage.getItem("favorites")
+        if (storedFavorites) {
+          setFavorites(JSON.parse(storedFavorites))
+        }
+
+        try {
+          const featuredResponse = await getFeaturedProperties()
+          setFeaturedListings(featuredResponse.data)
+        } catch (featuredError) {
+          console.error("Error fetching featured properties:", featuredError)
+          setError("Failed to load featured properties. Please try again later.")
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err)
+        setError("An error occurred while loading the page. Please try again.")
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    const storedFavorites = localStorage.getItem("favorites")
-    if (storedFavorites) {
-      setFavorites(JSON.parse(storedFavorites))
-    }
-
-    fetchFeaturedListings()
+    fetchData()
   }, [])
-
-  const fetchUserProperties = async (token) => {
-    try {
-      const response = await axios.get("http://localhost:5000/api/user/properties", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      setUserProperties(response.data)
-    } catch (error) {
-      console.error("Error fetching user properties:", error)
-    }
-  }
-
-  const fetchFeaturedListings = async () => {
-    try {
-      const response = await axios.get("http://localhost:5000/api/properties/featured")
-      console.log("Fetched featured listings:", response.data)
-      setFeaturedListings(response.data)
-    } catch (error) {
-      console.error("Error fetching featured listings:", error)
-    }
-  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -83,6 +93,10 @@ function Home() {
   }
 
   const toggleFavorite = (listing) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
     setFavorites((prev) => {
       const listingId = listing._id
       const newFavorites = prev.some((fav) => fav._id === listingId)
@@ -90,21 +104,33 @@ function Home() {
         : [...prev, listing]
 
       localStorage.setItem("favorites", JSON.stringify(newFavorites))
-
       return newFavorites
     })
   }
 
   const handleBookNow = (listing) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
     navigate(`/booknow/${listing._id}`, { state: { roomDetails: listing } })
   }
 
+  const handleChatWithLandlord = (landlordName) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
+    setCurrentLandlord(landlordName)
+    setShowChat(true)
+  }
+
   const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("user")
+    logout()
     setIsLoggedIn(false)
     setUsername("")
     setUserProperties([])
+    setFavorites([])
     navigate("/")
   }
 
@@ -115,17 +141,27 @@ function Home() {
   const handleDeleteProperty = async (propertyId) => {
     if (window.confirm("Are you sure you want to delete this property?")) {
       try {
-        const token = localStorage.getItem("token")
-        await axios.delete(`http://localhost:5000/api/properties/${propertyId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await deleteProperty(propertyId)
         setUserProperties((prev) => prev.filter((prop) => prop._id !== propertyId))
       } catch (error) {
         console.error("Error deleting property:", error)
+        alert("Failed to delete property. Please try again.")
       }
     }
+  }
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  if (error) {
+    return (
+      <div className="error-container">
+        <h2>Error</h2>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>Retry</button>
+      </div>
+    )
   }
 
   return (
@@ -289,14 +325,21 @@ function Home() {
             <div className="listings-grid">
               {featuredListings.map((listing) => (
                 <div key={listing._id} className="listing-card">
-                  <img
-                    src={getImageUrl(listing.images[0]) || "/placeholder.svg"}
-                    alt={listing.title}
-                    className="listing-image"
-                    width={250}
-                    height={167}
-                    onError={handleImageError}
-                  />
+                  <div className="listing-image-container">
+                    <img
+                      src={getImageUrl(listing.images[0]) || "/placeholder.svg"}
+                      alt={listing.title}
+                      className="listing-image"
+                      width={250}
+                      height={167}
+                      onError={handleImageError}
+                    />
+                    <div className="listing-overlay">
+                      <Link to={`/room/${listing._id}`} className="btn btn-primary btn-view">
+                        <Eye size={20} /> View
+                      </Link>
+                    </div>
+                  </div>
                   <div className="listing-details">
                     <h3>{listing.title}</h3>
                     <p className="listing-location">{listing.location}</p>
@@ -313,10 +356,7 @@ function Home() {
                       </button>
                       <button
                         className="btn btn-outline btn-chat"
-                        onClick={() => {
-                          setCurrentLandlord(listing.owner.name || "Landlord")
-                          setShowChat(true)
-                        }}
+                        onClick={() => handleChatWithLandlord(listing.owner.name || "Landlord")}
                       >
                         💬 Chat with Landlord
                       </button>
@@ -494,7 +534,9 @@ function Home() {
           </div>
         </div>
       </footer>
-      {showChat && <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} />}
+      {showChat && (
+        <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} isLoggedIn={isLoggedIn} />
+      )}
     </div>
   )
 }
