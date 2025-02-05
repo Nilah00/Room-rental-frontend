@@ -14,6 +14,32 @@ const center = {
   lng: 85.324,
 }
 
+const validateFiles = (files, type) => {
+  if (type === "images") {
+    const validTypes = ["image/jpeg", "image/png", "image/gif"]
+    const maxSize = 5 * 1024 * 1024 // 5MB per image
+
+    for (const file of files) {
+      if (!validTypes.includes(file.type)) {
+        throw new Error(`Invalid file type: ${file.name}. Only JPG, PNG, and GIF files are allowed.`)
+      }
+      if (file.size > maxSize) {
+        throw new Error(`File too large: ${file.name}. Maximum size is 5MB.`)
+      }
+    }
+  } else if (type === "video") {
+    const validTypes = ["video/mp4", "video/webm", "video/ogg"]
+    const maxSize = 50 * 1024 * 1024 // 50MB for video
+
+    if (!validTypes.includes(files.type)) {
+      throw new Error("Invalid video format. Only MP4, WebM, and OGG files are allowed.")
+    }
+    if (files.size > maxSize) {
+      throw new Error("Video file too large. Maximum size is 50MB.")
+    }
+  }
+}
+
 function AddProperty() {
   const [formData, setFormData] = useState({
     title: "",
@@ -31,6 +57,7 @@ function AddProperty() {
   })
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [mapCenter, setMapCenter] = useState(center)
+  const [isLoading, setIsLoading] = useState(false) // Added loading state
   const navigate = useNavigate()
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
@@ -68,24 +95,33 @@ function AddProperty() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target
-    if (type === "file") {
-      if (name === "images") {
-        const imageFiles = Array.from(files).slice(0, 10) // Limit to 10 images
-        setFormData((prevState) => ({
-          ...prevState,
-          [name]: imageFiles,
-        }))
+    try {
+      if (type === "file") {
+        if (name === "images") {
+          validateFiles(files, "images")
+          const imageFiles = Array.from(files).slice(0, 10)
+          setFormData((prevState) => ({
+            ...prevState,
+            [name]: imageFiles,
+          }))
+        } else if (name === "video") {
+          if (files[0]) {
+            validateFiles(files[0], "video")
+            setFormData((prevState) => ({
+              ...prevState,
+              [name]: files[0],
+            }))
+          }
+        }
       } else {
         setFormData((prevState) => ({
           ...prevState,
-          [name]: files[0],
+          [name]: type === "checkbox" ? checked : value,
         }))
       }
-    } else {
-      setFormData((prevState) => ({
-        ...prevState,
-        [name]: type === "checkbox" ? checked : value,
-      }))
+    } catch (error) {
+      alert(error.message)
+      e.target.value = "" // Reset the file input
     }
   }
 
@@ -110,60 +146,57 @@ function AddProperty() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setIsLoading(true)
     try {
-      const formDataToSend = new FormData()
-      for (const key in formData) {
-        if (key === "images") {
-          formData[key].forEach((image, index) => {
-            formDataToSend.append(`images`, image)
-          })
-        } else if (key === "video") {
-          if (formData[key]) {
-            formDataToSend.append("video", formData[key])
-          }
-        } else if (key === "amenities") {
-          formDataToSend.append(key, JSON.stringify(formData[key]))
-        } else if (key === "price" || key === "bedrooms" || key === "bathrooms") {
-          formDataToSend.append(key, Number(formData[key]))
-        } else {
-          formDataToSend.append(key, formData[key])
-        }
+      // Validate required fields
+      const requiredFields = {
+        title: "Title",
+        description: "Description",
+        price: "Price",
+        location: "Location",
+        bedrooms: "Number of bedrooms",
+        bathrooms: "Number of bathrooms",
       }
 
-      console.log("Sending data:", Object.fromEntries(formDataToSend))
+      const missingFields = Object.entries(requiredFields)
+        .filter(([key]) => !formData[key])
+        .map(([_, label]) => label)
+
+      if (missingFields.length > 0) {
+        throw new Error(`Please fill in the following required fields: ${missingFields.join(", ")}`)
+      }
+
+      // Validate images
+      if (!formData.images || formData.images.length === 0) {
+        throw new Error("Please select at least one image")
+      }
+
+      const formDataToSend = new FormData()
+
+      // Add all form fields to FormData
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key === "images") {
+          value.forEach((image) => {
+            formDataToSend.append("images", image)
+          })
+        } else if (key === "video" && value) {
+          formDataToSend.append("video", value)
+        } else if (key === "amenities") {
+          formDataToSend.append(key, JSON.stringify(value))
+        } else {
+          formDataToSend.append(key, value)
+        }
+      })
+
       const response = await addProperty(formDataToSend)
-      console.log("Property added:", response.data)
-
-      // Refresh featured listings and navigate to home page
-      await getFeaturedProperties()
-
-      // Show success message
+      console.log("Property added successfully:", response.data)
       alert("Property added successfully!")
       navigate("/")
-
-      // Force reload the page to show updated listings
-      window.location.reload()
     } catch (error) {
-      console.error("Error details:", error)
-      if (error.response) {
-        console.error("Response data:", error.response.data)
-        console.error("Response status:", error.response.status)
-        console.error("Response headers:", error.response.headers)
-      } else if (error.request) {
-        console.error("No response received:", error.request)
-      } else {
-        console.error("Error message:", error.message)
-      }
-      console.error("Error config:", error.config)
-
-      if (error.response?.status === 403 || error.response?.data?.message?.includes("token")) {
-        localStorage.removeItem("token")
-        localStorage.removeItem("user")
-        alert("Session expired. Please login again.")
-        navigate("/login")
-      } else {
-        alert(`Failed to add property. ${error.response?.data?.message || error.message}`)
-      }
+      console.error("Error adding property:", error)
+      alert(error.message || "Failed to add property. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -341,8 +374,8 @@ function AddProperty() {
               )}
             </div>
             <div className="button-group">
-              <button type="submit" className="btn btn-primary">
-                Add Property
+              <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                {isLoading ? "Adding..." : "Add Property"} {/* Add loading indicator */}
               </button>
             </div>
           </form>

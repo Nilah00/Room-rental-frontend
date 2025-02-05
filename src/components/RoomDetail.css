@@ -1,77 +1,94 @@
 .room-detail-page {
-    padding: 2rem 0;
-  }
-  
+  padding: 2rem 0;
+}
+
+.room-detail-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.room-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.room-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.room-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.room-location,
+.room-price,
+.room-furnished {
+  font-size: 1.2rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.room-amenities ul {
+  list-style-type: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.room-amenities li {
+  background-color: #f0f0f0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.room-description {
+  line-height: 1.6;
+}
+
+.room-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.room-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.btn-favorite,
+.btn-favorite-active {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  transition: transform 0.2s ease;
+}
+
+.btn-favorite:hover,
+.btn-favorite-active:hover {
+  transform: scale(1.1);
+}
+
+.btn-favorite-active svg {
+  fill: red;
+}
+
+@media (max-width: 768px) {
   .room-detail-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin-top: 2rem;
+    grid-template-columns: 1fr;
   }
-  
-  .room-images {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-  }
-  
-  .room-image {
-    width: 100%;
-    height: auto;
-    object-fit: cover;
-    border-radius: 8px;
-  }
-  
-  .room-info {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .room-location,
-  .room-price,
-  .room-furnished {
-    font-size: 1.2rem;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  
-  .room-amenities ul {
-    list-style-type: none;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  
-  .room-amenities li {
-    background-color: #f0f0f0;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-  }
-  
-  .room-description {
-    line-height: 1.6;
-  }
-  
-  .room-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-  
-  .room-actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-  
-  @media (max-width: 768px) {
-    .room-detail-content {
-      grid-template-columns: 1fr;
-    }
-  }
-  
-  
+}
+

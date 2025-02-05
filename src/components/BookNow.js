@@ -1,20 +1,13 @@
-import React, { useState, useEffect } from "react"
-import { useParams, useLocation, Link } from "react-router-dom"
-import { MapPin, Home } from "lucide-react"
-import { getImageUrl, handleImageError } from "./imageUtils"
+import { useState, useEffect } from "react"
+import { useParams, Link } from "react-router-dom"
+import { Home } from "lucide-react"
+import { getPropertyById } from "../services/api"
 import "./BookNow.css"
-
-const sampleVideos = [
-  { url: "/sample-video1.mp4", description: "Living room tour" },
-  { url: "/sample-video2.mp4", description: "Balcony view" },
-]
 
 export default function BookNow() {
   const { id } = useParams()
-  const location = useLocation()
   const [roomDetails, setRoomDetails] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [showVideos, setShowVideos] = useState(false)
   const [bookingData, setBookingData] = useState({
     name: "",
     email: "",
@@ -26,22 +19,10 @@ export default function BookNow() {
   })
 
   useEffect(() => {
-    const loadRoomDetails = async () => {
+    const fetchRoomDetails = async () => {
       try {
-        if (location.state && location.state.roomDetails) {
-          setRoomDetails(location.state.roomDetails)
-        } else {
-          setRoomDetails({
-            id: id,
-            title: "Sample Room",
-            price: 25000,
-            furnished: true,
-            location: "Sample Location",
-            images: ["/placeholder.svg?height=300&width=400"],
-            amenities: { parking: true, wifi: true, water: true },
-            videos: [],
-          })
-        }
+        const data = await getPropertyById(id)
+        setRoomDetails(data)
       } catch (error) {
         console.error("Error fetching room details:", error)
       } finally {
@@ -49,12 +30,8 @@ export default function BookNow() {
       }
     }
 
-    loadRoomDetails()
-  }, [id, location.state])
-
-  const toggleShowVideos = () => {
-    setShowVideos((prev) => !prev)
-  }
+    fetchRoomDetails()
+  }, [id])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -72,76 +49,23 @@ export default function BookNow() {
   }
 
   if (!roomDetails) {
-    return <div className="book-now-container">Error loading room details.</div>
+    return <div className="book-now-container">Error: Room not found</div>
   }
-
-  const videosToShow = roomDetails.videos && roomDetails.videos.length > 0 ? roomDetails.videos : sampleVideos
 
   return (
     <div className="book-now-container">
       <div className="book-now-card">
         <header className="book-now-header">
-          <h1 className="book-now-header-title">Request to Rent</h1>
-          <p className="book-now-header-subtitle">Complete your rental request for {roomDetails.title}</p>
+          <h1 className="book-now-header-title">Booking for "{roomDetails.title}"</h1>
+          <p className="book-now-header-subtitle">Complete your rental request</p>
           <Link to="/" className="book-now-back-button">
             <Home size={18} />
             Back to Home
           </Link>
         </header>
         <main className="book-now-content">
-          <section className="book-now-room-details">
-            <div>
-              <img
-                src={getImageUrl(roomDetails.images[0]) || "/placeholder.svg"}
-                alt={roomDetails.title}
-                className="book-now-room-image"
-                onError={handleImageError}
-              />
-            </div>
-            <div className="book-now-room-info">
-              <h2 className="book-now-room-title">{roomDetails.title}</h2>
-              <p className="book-now-room-price">Rs {roomDetails.price.toLocaleString()}/month</p>
-              <p className="book-now-room-status">{roomDetails.furnished ? "Furnished" : "Unfurnished"}</p>
-              {roomDetails.location && (
-                <div className="book-now-location-info">
-                  <MapPin size={20} />
-                  <span className="book-now-location-text">{roomDetails.location}</span>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <div className="book-now-amenities">
-            <h3>Amenities</h3>
-            <div className="amenities-list">
-              {roomDetails.amenities.parking && <div className="amenity">🅿️ Parking</div>}
-              {roomDetails.amenities.wifi && <div className="amenity">📶 WiFi</div>}
-              {roomDetails.amenities.water && <div className="amenity">💧 Water</div>}
-            </div>
-          </div>
-
-          <section className="book-now-videos">
-            <h3 className="book-now-videos-title">Room Videos</h3>
-            <button onClick={toggleShowVideos} className="book-now-button">
-              {showVideos ? "Hide Videos" : "Show Videos"}
-            </button>
-            {showVideos && (
-              <div className="book-now-video-container">
-                {videosToShow.map((video, index) => (
-                  <div key={index} className="book-now-video-item">
-                    <video controls>
-                      <source src={video.url} type="video/mp4" />
-                      Your browser does not support the video tag.
-                    </video>
-                    <p className="book-now-video-description">{video.description}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
           <form onSubmit={handleSubmit} className="book-now-form">
-            <h3 className="book-now-form-title">Booking Details Form</h3>
+            <h3 className="book-now-form-title">Booking Details</h3>
 
             <div className="book-now-form-group">
               <label htmlFor="name" className="book-now-label">
@@ -235,8 +159,7 @@ export default function BookNow() {
                 onChange={handleInputChange}
                 className="book-now-input"
                 min="1"
-                require
-                d
+                required
               />
             </div>
 
@@ -264,3 +187,4 @@ export default function BookNow() {
     </div>
   )
 }
+

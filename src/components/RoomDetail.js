@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import { Heart, MessageCircle, MapPin } from "lucide-react"
-import { getPropertyById, toggleFavorite } from "../services/api"
+import { getPropertyById, toggleFavorite, getFavorites } from "../services/api"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import { isAuthenticated } from "../services/auth"
 import ChatBox from "./ChatBox"
@@ -17,29 +17,25 @@ const RoomDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  // Memoize checkIfFavorite to prevent unnecessary re-renders
-  const checkIfFavorite = useCallback((roomId) => {
+  const checkIfFavorite = useCallback(async (roomId) => {
     try {
-      const storedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]")
-      return storedFavorites.some((fav) => fav._id === roomId)
+      const favorites = await getFavorites()
+      return favorites.some((fav) => fav._id === roomId)
     } catch (error) {
       console.error("Error checking favorites:", error)
       return false
     }
   }, [])
 
-  // Memoize fetchRoomData to prevent unnecessary re-renders
   const fetchRoomData = useCallback(async () => {
     if (!id) return
 
     setIsLoading(true)
     setError(null)
     try {
-      console.log("Fetching room data for id:", id)
-      const roomData = await getPropertyById(id)
-      console.log("Received room data:", roomData)
+      const [roomData, favoriteStatus] = await Promise.all([getPropertyById(id), checkIfFavorite(id)])
       setRoom(roomData)
-      setIsFavorite(checkIfFavorite(id))
+      setIsFavorite(favoriteStatus)
     } catch (err) {
       console.error("Error fetching room data:", err)
       setError("Failed to load room details. Please try again.")
@@ -56,7 +52,11 @@ const RoomDetail = () => {
 
     checkAuth()
     fetchRoomData()
-  }, [fetchRoomData]) // Only depend on fetchRoomData
+  }, [fetchRoomData])
+
+  useEffect(() => {
+    console.log("Current isFavorite state:", isFavorite)
+  }, [isFavorite])
 
   const handleToggleFavorite = async () => {
     if (!isLoggedIn) {
@@ -65,23 +65,20 @@ const RoomDetail = () => {
     }
 
     try {
+      console.log("Toggling favorite for room:", id)
       const result = await toggleFavorite(id)
-      setIsFavorite(result.isFavorite)
+      console.log("Toggle favorite result:", result)
 
-      // Update local storage
-      const storedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]")
-      if (result.isFavorite) {
-        if (!storedFavorites.some((fav) => fav._id === id) && room) {
-          storedFavorites.push(room)
-          localStorage.setItem("favorites", JSON.stringify(storedFavorites))
-        }
+      if (result.success) {
+        setIsFavorite(result.isFavorite)
+        console.log("Updated isFavorite state:", result.isFavorite)
+        // Update local storage with new favorites
+        localStorage.setItem("favorites", JSON.stringify(result.favorites))
       } else {
-        const updatedFavorites = storedFavorites.filter((fav) => fav._id !== id)
-        localStorage.setItem("favorites", JSON.stringify(updatedFavorites))
+        throw new Error(result.message || "Failed to update favorite status")
       }
     } catch (err) {
       console.error("Error toggling favorite:", err)
-      alert("Failed to update favorite status. Please try again.")
     }
   }
 
@@ -119,15 +116,21 @@ const RoomDetail = () => {
                 <img
                   key={index}
                   src={getImageUrl(image) || "/placeholder.svg"}
-                  alt={`${room.title} - Image ${index + 1}`}
+                  alt={`${room.title} - ${index + 1}`}
                   className="room-image"
                   onError={handleImageError}
                 />
               ))
             ) : (
-              <img src="/placeholder.svg" alt="No image available" className="room-image" />
+              <img src="/placeholder.svg" alt="No available" className="room-image" />
             )}
           </div>
+          {room.video && (
+            <div className="room-video">
+              <h3>Property Video</h3>
+              <video src={getImageUrl(room.video)} controls width="100%" />
+            </div>
+          )}
           <div className="room-info">
             <p className="room-location">
               <MapPin size={20} />

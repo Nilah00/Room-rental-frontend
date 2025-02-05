@@ -10,6 +10,7 @@ import ViewAllRooms from "./components/ViewAllRoom"
 import Saved from "./components/Saved"
 import ManageProperties from "./components/ManageProperty"
 import RoomDetail from "./components/RoomDetail"
+import EditProperty from "./components/EditProperty"
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/saved" element={<Saved />} />
         <Route path="/manage-properties" element={<ManageProperties />} />
         <Route path="/room/:id" element={<RoomDetail />} />
+        <Route path="/edit-property/:id" element={<EditProperty />} />
       </Routes>
     </Router>
   )
