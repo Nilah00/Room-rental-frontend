@@ -2,16 +2,37 @@
 
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Star, Bell, MessageCircle, User, Edit, Trash2, Eye, Heart } from "lucide-react"
+import {
+  Star,
+  Bell,
+  MessageCircle,
+  User,
+  Edit,
+  Trash2,
+  Eye,
+  Heart,
+  Search,
+  MessageSquare,
+  HomeIcon,
+  Lock,
+  BarChart2,
+  PenTool,
+  Bed,
+  Bath,
+  Car,
+  Wifi,
+  Droplet,
+  Snowflake,
+} from "lucide-react"
 import "./Home.css"
 import "./RentalMap.css"
 import ChatBox from "./ChatBox"
 import RentalMap from "./RentalMap"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import { getFeaturedProperties, getUserProperties, deleteProperty, getFavorites } from "../services/api"
-import { isAuthenticated, logout } from "../services/auth" // Updated import statement
+import { isAuthenticated, logout } from "../services/auth"
 
-const Home = () => {
+const HomePage = () => {
   const [searchParams, setSearchParams] = useState({
     location: "",
     priceRange: "",
@@ -169,7 +190,7 @@ const Home = () => {
       <header className="header">
         <div className="container">
           <Link to="/" className="logo">
-            <span className="home-icon">🏠</span>
+            <HomeIcon size={24} />
             <span className="logo-text">RoomRental</span>
           </Link>
           <nav className="main-nav">
@@ -219,7 +240,7 @@ const Home = () => {
                         Settings
                       </Link>
                       <Link to="/manage-properties" className="dropdown-item">
-                        Manage Properties ({userProperties.length})
+                        Manage Properties 
                       </Link>
                       <button onClick={handleLogout} className="dropdown-item">
                         Logout
@@ -346,9 +367,38 @@ const Home = () => {
                     <p className="listing-price">Rs {listing.price.toLocaleString()}/month</p>
                     <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
                     <div className="amenities">
-                      {listing.amenities.includes("parking") && <div className="amenity">🅿️ Parking</div>}
-                      {listing.amenities.includes("wifi") && <div className="amenity">📶 WiFi</div>}
-                      {listing.amenities.includes("water") && <div className="amenity">💧 Water</div>}
+                      <div className="amenity">
+                        <Bed size={16} />
+                        <span>{listing.bedrooms} beds</span>
+                      </div>
+                      <div className="amenity">
+                        <Bath size={16} />
+                        <span>{listing.bathrooms} baths</span>
+                      </div>
+                      {listing.amenities.includes("parking") && (
+                        <div className="amenity">
+                          <Car size={16} />
+                          <span>Parking</span>
+                        </div>
+                      )}
+                      {listing.amenities.includes("wifi") && (
+                        <div className="amenity">
+                          <Wifi size={16} />
+                          <span>WiFi</span>
+                        </div>
+                      )}
+                      {listing.amenities.includes("water") && (
+                        <div className="amenity">
+                          <Droplet size={16} />
+                          <span>Water</span>
+                        </div>
+                      )}
+                      {listing.amenities.includes("ac") && (
+                        <div className="amenity">
+                          <Snowflake size={16} />
+                          <span>AC</span>
+                        </div>
+                      )}
                     </div>
                     <div className="listing-actions">
                       <button className="btn btn-primary btn-book" onClick={() => handleBookNow(listing)}>
@@ -358,7 +408,7 @@ const Home = () => {
                         className="btn btn-outline btn-chat"
                         onClick={() => handleChatWithLandlord(listing.owner.name || "Landlord")}
                       >
-                        💬 Chat with Landlord
+                        <MessageCircle size={16} /> Chat with Landlord
                       </button>
                       <button
                         className={`btn btn-icon ${favorites.some((fav) => fav._id === listing._id) ? "btn-favorite-active" : "btn-favorite"}`}
@@ -369,7 +419,10 @@ const Home = () => {
                             : "Add to favorites"
                         }
                       >
-                        <Heart size={20} fill={favorites.some((fav) => fav._id === listing._id) ? "red" : "none"} />
+                        <Heart
+                          size={20}
+                          fill={favorites.some((fav) => fav._id === listing._id) ? "currentColor" : "none"}
+                        />
                       </button>
                     </div>
                   </div>
@@ -402,7 +455,9 @@ const Home = () => {
           <h2>How It Works</h2>
           <div className="steps-grid">
             <div className="step">
-              <div className="step-icon">🔍</div>
+              <div className="step-icon">
+                <Search size={24} />
+              </div>
               <h3>Search</h3>
               <p>
                 Browse through our extensive list of available rooms in Nepal and apply filters to find your perfect
@@ -410,12 +465,16 @@ const Home = () => {
               </p>
             </div>
             <div className="step">
-              <div className="step-icon">💬</div>
+              <div className="step-icon">
+                <MessageSquare size={24} />
+              </div>
               <h3>Connect</h3>
               <p>Reach out to landlords directly through our platform to ask questions and schedule viewings.</p>
             </div>
             <div className="step">
-              <div className="step-icon">🏠</div>
+              <div className="step-icon">
+                <HomeIcon size={24} />
+              </div>
               <h3>Move In</h3>
               <p>Once you've found your ideal room, complete the booking process and prepare for your move-in date.</p>
             </div>
@@ -428,17 +487,23 @@ const Home = () => {
           <h2>Why Choose RoomRental</h2>
           <div className="benefits-grid">
             <div className="benefit-card">
-              <div className="benefit-icon">🔒</div>
+              <div className="benefit-icon">
+                <Lock size={24} />
+              </div>
               <h3>Secure Transactions</h3>
               <p>Our platform ensures safe and secure transactions for both tenants and landlords.</p>
             </div>
             <div className="benefit-card">
-              <div className="benefit-icon">📊</div>
+              <div className="benefit-icon">
+                <BarChart2 size={24} />
+              </div>
               <h3>Extensive Listings</h3>
               <p>Access a wide variety of rooms and properties to suit every need and budget.</p>
             </div>
             <div className="benefit-card">
-              <div className="benefit-icon">🛠️</div>
+              <div className="benefit-icon">
+                <PenTool size={24} />
+              </div>
               <h3>24/7 Support</h3>
               <p>Our dedicated support team is always ready to assist you with any issues or questions.</p>
             </div>
@@ -484,7 +549,12 @@ const Home = () => {
                 </div>
                 <div className="testimonial-rating">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className={i < testimonial.rating ? "star-filled" : "star-empty"} />
+                    <Star
+                      key={i}
+                      size={16}
+                      fill={i < testimonial.rating ? "currentColor" : "none"}
+                      stroke={i < testimonial.rating ? "currentColor" : "currentColor"}
+                    />
                   ))}
                 </div>
               </div>
@@ -541,5 +611,5 @@ const Home = () => {
   )
 }
 
-export default Home
+export default HomePage
 

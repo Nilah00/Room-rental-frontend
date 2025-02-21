@@ -1,5 +1,5 @@
 import api from "./api"
-import { clearLocalFavorites, getFavorites } from "./api"
+import { clearLocalFavorites, getFavorites } from "../services/api"
 
 export const login = async (credentials) => {
   try {

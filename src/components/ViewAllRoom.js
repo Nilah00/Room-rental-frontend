@@ -1,7 +1,9 @@
+"use client"
+
 import { useState, useEffect, useCallback } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import axios from "axios"
-import { Heart, Eye } from "lucide-react"
+import { Heart, Eye, MessageCircle, Car, Wifi, Droplet, Bed, Bath, Snowflake } from "lucide-react"
 import ChatBox from "./ChatBox"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import "./ViewAllRoom.css"
@@ -66,7 +68,7 @@ function ViewAllRooms() {
 
   useEffect(() => {
     handleSearch()
-  }, [searchParams, handleSearch])
+  }, [handleSearch])
 
   const fetchRooms = async () => {
     setIsLoading(true)
@@ -183,16 +185,39 @@ function ViewAllRooms() {
                 <p className="listing-price">Rs {room.price.toLocaleString()}/month</p>
                 <p className="furnished-status">{room.furnished ? "Furnished" : "Unfurnished"}</p>
                 <div className="amenities">
-                  {room.amenities.includes("parking") && <div className="amenity">🅿️ Parking</div>}
-                  {room.amenities.includes("wifi") && <div className="amenity">📶 WiFi</div>}
-                  {room.amenities.includes("water") && <div className="amenity">💧 Water</div>}
+                  <div className="amenity">
+                    <Bed size={16} /> {room.bedrooms} {room.bedrooms === 1 ? "bed" : "beds"}
+                  </div>
+                  <div className="amenity">
+                    <Bath size={16} /> {room.bathrooms} {room.bathrooms === 1 ? "bath" : "baths"}
+                  </div>
+                  {room.amenities.includes("parking") && (
+                    <div className="amenity">
+                      <Car size={16} /> Parking
+                    </div>
+                  )}
+                  {room.amenities.includes("wifi") && (
+                    <div className="amenity">
+                      <Wifi size={16} /> WiFi
+                    </div>
+                  )}
+                  {room.amenities.includes("water") && (
+                    <div className="amenity">
+                      <Droplet size={16} /> Water
+                    </div>
+                  )}
+                  {room.amenities.includes("ac") && (
+                    <div className="amenity">
+                      <Snowflake size={16} /> AC
+                    </div>
+                  )}
                 </div>
                 <div className="listing-actions">
                   <button className="btn btn-primary btn-book" onClick={() => handleBookNow(room)}>
                     Book Now
                   </button>
                   <button className="btn btn-outline btn-chat" onClick={() => handleChatWithLandlord(room.owner.name)}>
-                    💬 Chat with Landlord
+                    <MessageCircle size={16} /> Chat with Landlord
                   </button>
                   <button
                     className={`btn btn-icon ${
@@ -200,7 +225,7 @@ function ViewAllRooms() {
                     }`}
                     onClick={() => toggleFavorite(room)}
                   >
-                    <Heart size={20} fill={favorites.some((fav) => fav._id === room._id) ? "red" : "none"} />
+                    <Heart size={20} fill={favorites.some((fav) => fav._id === room._id) ? "currentColor" : "none"} />
                   </button>
                 </div>
               </div>

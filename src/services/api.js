@@ -25,29 +25,28 @@ api.interceptors.request.use(
   },
 )
 
-// Response interceptor for logging and error handling
+// Response interceptor for logging, error handling, and token refresh
 api.interceptors.response.use(
   (response) => {
     console.log("Response:", response)
     return response
   },
-  (error) => {
-    console.error("API Error:", error.response ? error.response.data : error.message)
-    return Promise.reject(error)
-  },
-)
-
-// Response interceptor for handling token expiration
-api.interceptors.response.use(
-  (response) => response,
   async (error) => {
-    if (error.response && error.response.status === 401 && error.response.data.code === "TOKEN_EXPIRED") {
-      // Token has expired
-      localStorage.removeItem("token")
-      localStorage.removeItem("user")
-      // Redirect to login page
-      window.location.href = "/login?expired=true"
+    const originalRequest = error.config
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+      try {
+        const newToken = await refreshToken()
+        api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`
+        return api(originalRequest)
+      } catch (refreshError) {
+        console.error("Error refreshing token:", refreshError)
+        // Redirect to login page
+        window.location.href = "/login?expired=true"
+        return Promise.reject(refreshError)
+      }
     }
+    console.error("API Error:", error.response ? error.response.data : error.message)
     return Promise.reject(error)
   },
 )

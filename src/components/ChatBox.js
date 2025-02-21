@@ -77,4 +77,3 @@ function ChatBox({ onClose, landlordName, isLoggedIn }) {
 }
 
 export default ChatBox
-

@@ -1,55 +1,133 @@
-.info-window {
-  padding: 10px;
-  max-width: 200px;
-}
-
-.info-window h3 {
-  margin: 0 0 10px;
-  font-size: 16px;
-  color: var(--primary-color);
-}
-
-.info-detail {
+/* RentalMap.css */
+.map-section {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  padding: 20px 0;
   display: flex;
-  align-items: center;
-  gap: 5px;
-  margin: 5px 0;
-  font-size: 14px;
-  color: var(--text-color);
+  flex-direction: column;
 }
 
-.view-details-btn {
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-top: 10px;
-  transition: background-color 0.3s ease;
+.map-title {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #2c3e50;
+  font-size: 24px;
+  font-weight: 600;
 }
 
-.view-details-btn:hover {
-  background-color: #4338CA;
+.map-container {
+  flex-grow: 1;
+  height: calc(100vh - 100px); /* Adjust this value as needed */
+  width: 100%;
+  max-width: 1400px; /* Limit maximum width for very wide screens */
+  margin: 0 auto;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
-.map-legend {
-  background-color: white;
-  padding: 10px;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.loading {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  z-index: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
+  color: #666;
+  background: white;
+  padding: 20px 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.legend-item {
+/* Customize the popup style */
+.leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2);
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  width: 300px !important;
+}
+
+.property-popup {
+  padding: 15px;
+  background: white;
+}
+
+.property-popup h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  color: #2c3e50;
+  font-weight: 600;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.property-popup p {
+  margin: 8px 0;
+  color: #34495e;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
-  color: var(--text-color);
 }
 
+/* Customize map controls */
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
+}
+
+.leaflet-control-zoom a {
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  border-radius: 8px !important;
+  background-color: white !important;
+  color: #2c3e50 !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: #f8f9fa !important;
+  color: #1a202c !important;
+}
+
+/* Customize markers */
+.leaflet-marker-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.rental-map {
+  padding: 20px;
+}
+
+.rental-map h2 {
+  margin-bottom: 20px;
+}
+
+
+
+/* Make the map responsive */
+@media (max-width: 768px) {
+  .map-container {
+    height: calc(100vh - 80px);
+    padding: 0 10px;
+  }
+
+  .property-popup {
+    padding: 12px;
+  }
+
+  .leaflet-popup-content {
+    width: 250px !important;
+  }
+}

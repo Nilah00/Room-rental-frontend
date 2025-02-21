@@ -1,8 +1,48 @@
+"use client"
+
 import { useState, useEffect } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, Link } from "react-router-dom"
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet"
 import { getPropertyById, updateProperty } from "../services/api"
 import { getImageUrl } from "./imageUtils"
-import "./AddProperty.css" 
+import "./AddProperty.css"
+
+const center = {
+  lat: 27.7172, // Kathmandu, Nepal
+  lng: 85.324,
+}
+
+const validateFiles = (files, type) => {
+  const validFiles = []
+  const errors = []
+  const maxSize = type === "image" ? 5 * 1024 * 1024 : 50 * 1024 * 1024 // 5MB for images, 50MB for video
+  const allowedTypes =
+    type === "image" ? ["image/jpeg", "image/png", "image/gif"] : ["video/mp4", "video/webm", "video/ogg"]
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    if (!allowedTypes.includes(file.type)) {
+      errors.push(`File ${file.name} is not a valid ${type} type.`)
+    } else if (file.size > maxSize) {
+      errors.push(`File ${file.name} exceeds the maximum size of ${maxSize / (1024 * 1024)}MB.`)
+    } else {
+      validFiles.push(file)
+    }
+  }
+
+  return { validFiles, errors }
+}
+
+function LocationMarker({ position, setPosition }) {
+  const map = useMapEvents({
+    click(e) {
+      setPosition(e.latlng)
+      map.flyTo(e.latlng, map.getZoom())
+    },
+  })
+
+  return position ? <Marker position={position} /> : null
+}
 
 export default function EditProperty() {
   const { id } = useParams()
@@ -14,6 +54,8 @@ export default function EditProperty() {
     description: "",
     price: "",
     location: "",
+    latitude: center.lat,
+    longitude: center.lng,
     bedrooms: "",
     bathrooms: "",
     furnished: false,
@@ -21,10 +63,11 @@ export default function EditProperty() {
     images: [],
     video: null,
   })
+  const [mapPosition, setMapPosition] = useState(center)
 
   useEffect(() => {
     fetchPropertyDetails()
-  }, []) // Removed unnecessary dependency 'id'
+  }, [])
 
   const fetchPropertyDetails = async () => {
     try {
@@ -36,6 +79,8 @@ export default function EditProperty() {
         description: property.description,
         price: property.price,
         location: property.location,
+        latitude: property.latitude || center.lat,
+        longitude: property.longitude || center.lng,
         bedrooms: property.bedrooms,
         bathrooms: property.bathrooms,
         furnished: property.furnished,
@@ -43,6 +88,7 @@ export default function EditProperty() {
         images: property.images || [],
         video: property.video || null,
       })
+      setMapPosition({ lat: property.latitude || center.lat, lng: property.longitude || center.lng })
     } catch (err) {
       console.error("Error fetching property details:", err)
       setError("Failed to load property details")
@@ -53,39 +99,103 @@ export default function EditProperty() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target
-    if (type === "file") {
-      if (name === "images") {
-        const imageFiles = Array.from(files).slice(0, 10)
-        setFormData((prev) => ({
-          ...prev,
-          [name]: imageFiles,
-        }))
-      } else if (name === "video") {
-        setFormData((prev) => ({
-          ...prev,
-          [name]: files[0],
+    try {
+      if (type === "file") {
+        const fileType = name === "images" ? "image" : "video"
+        const { validFiles, errors } = validateFiles(files, fileType)
+
+        if (errors.length > 0) {
+          alert(errors.join("\n"))
+        }
+
+        if (name === "images") {
+          setFormData((prevState) => ({
+            ...prevState,
+            images: [...prevState.images, ...validFiles],
+          }))
+        } else if (name === "video") {
+          setFormData((prevState) => ({
+            ...prevState,
+            video: validFiles.length > 0 ? validFiles[0] : null,
+          }))
+        }
+      } else {
+        setFormData((prevState) => ({
+          ...prevState,
+          [name]: type === "checkbox" ? checked : value,
         }))
       }
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-      }))
+    } catch (error) {
+      console.error("Error in handleInputChange:", error)
+      alert(error.message)
+      e.target.value = "" // Reset the file input
     }
+  }
+
+  const handleAmenityChange = (e) => {
+    const { value, checked } = e.target
+    setFormData((prevState) => {
+      let updatedAmenities = [...prevState.amenities]
+      if (checked) {
+        updatedAmenities.push(value)
+      } else {
+        updatedAmenities = updatedAmenities.filter((amenity) => amenity !== value)
+      }
+      return { ...prevState, amenities: updatedAmenities }
+    })
+  }
+
+  const validateAmenities = (amenities) => {
+    if (amenities.length === 0) {
+      return "Please select at least one amenity"
+    }
+    return null
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      // Basic client-side validation
+      const requiredFields = {
+        title: "Title",
+        description: "Description",
+        price: "Price",
+        location: "Location",
+        bedrooms: "Number of bedrooms",
+        bathrooms: "Number of bathrooms",
+      }
+
+      const errors = {}
+      Object.entries(requiredFields).forEach(([field, label]) => {
+        if (!formData[field]) {
+          errors[field] = `${label} is required`
+        }
+      })
+
+      if ((formData.price && isNaN(formData.price)) || formData.price <= 0) {
+        errors.price = "Price must be a valid positive number"
+      }
+
+      const amenitiesError = validateAmenities(formData.amenities)
+      if (amenitiesError) {
+        errors.amenities = amenitiesError
+      }
+
+      if (Object.keys(errors).length > 0) {
+        const errorMessage = Object.entries(errors)
+          .map(([field, message]) => `${message}`)
+          .join("\n")
+        throw new Error(errorMessage)
+      }
+
       const formDataToSend = new FormData()
 
-      // Append all form fields to FormData
+      // Add all form fields to FormData with proper type conversion
       Object.entries(formData).forEach(([key, value]) => {
         if (key === "images") {
-          // Handle existing images (as strings) and new images (as Files)
-          value.forEach((image) => {
+          value.forEach((image, index) => {
             if (image instanceof File) {
-              formDataToSend.append("images", image)
+              formDataToSend.append(`images`, image)
             } else {
               formDataToSend.append("existingImages", image)
             }
@@ -98,17 +208,27 @@ export default function EditProperty() {
           }
         } else if (key === "amenities") {
           formDataToSend.append(key, JSON.stringify(value))
-        } else {
-          formDataToSend.append(key, value)
+        } else if (key === "price") {
+          formDataToSend.append(key, Number.parseFloat(value).toString())
+        } else if (key === "bedrooms" || key === "bathrooms") {
+          formDataToSend.append(key, Number.parseInt(value, 10).toString())
+        } else if (typeof value === "boolean") {
+          formDataToSend.append(key, value.toString())
+        } else if (value !== null && value !== undefined) {
+          formDataToSend.append(key, value.toString())
         }
       })
+
+      // Add map coordinates
+      formDataToSend.append("latitude", mapPosition.lat.toString())
+      formDataToSend.append("longitude", mapPosition.lng.toString())
 
       await updateProperty(id, formDataToSend)
       alert("Property updated successfully!")
       navigate("/manage-properties")
-    } catch (err) {
-      console.error("Error updating property:", err)
-      alert("Failed to update property. Please try again.")
+    } catch (error) {
+      console.error("Error updating property:", error)
+      alert(error.message || "Failed to update property. Please try again.")
     }
   }
 
@@ -122,11 +242,11 @@ export default function EditProperty() {
 
   return (
     <div className="add-property-page">
-      <header className="add-property-header">
+      <header className="header">
         <h1>Edit Property</h1>
-        <button onClick={() => navigate("/manage-properties")} className="btn btn-secondary">
+        <Link to="/manage-properties" className="btn btn-secondary">
           Back to Properties
-        </button>
+        </Link>
       </header>
 
       <main className="add-property-content">
@@ -149,7 +269,7 @@ export default function EditProperty() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="price">Price (per month)</label>
+              <label htmlFor="price">Price (Rs)</label>
               <input
                 type="number"
                 id="price"
@@ -173,6 +293,25 @@ export default function EditProperty() {
             </div>
 
             <div className="form-group">
+              <label>Select Location on Map</label>
+              <MapContainer center={mapPosition} zoom={13} style={{ height: "400px", width: "100%" }}>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                <LocationMarker position={mapPosition} setPosition={setMapPosition} />
+              </MapContainer>
+            </div>
+            <div className="form-group">
+              <label htmlFor="latitude">Latitude</label>
+              <input type="number" id="latitude" name="latitude" value={mapPosition.lat} readOnly step="any" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="longitude">Longitude</label>
+              <input type="number" id="longitude" name="longitude" value={mapPosition.lng} readOnly step="any" />
+            </div>
+
+            <div className="form-group">
               <label htmlFor="bedrooms">Bedrooms</label>
               <input
                 type="number"
@@ -180,7 +319,6 @@ export default function EditProperty() {
                 name="bedrooms"
                 value={formData.bedrooms}
                 onChange={handleInputChange}
-                required
               />
             </div>
 
@@ -192,21 +330,60 @@ export default function EditProperty() {
                 name="bathrooms"
                 value={formData.bathrooms}
                 onChange={handleInputChange}
-                required
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="furnished">
-                <input
-                  type="checkbox"
-                  id="furnished"
-                  name="furnished"
-                  checked={formData.furnished}
-                  onChange={handleInputChange}
-                />
-                Furnished
-              </label>
+              <label htmlFor="furnished">Furnished</label>
+              <input
+                type="checkbox"
+                id="furnished"
+                name="furnished"
+                checked={formData.furnished}
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Amenities</label>
+              <div className="amenities-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    value="wifi"
+                    checked={formData.amenities.includes("wifi")}
+                    onChange={handleAmenityChange}
+                  />
+                  WiFi
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    value="parking"
+                    checked={formData.amenities.includes("parking")}
+                    onChange={handleAmenityChange}
+                  />
+                  Parking
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    value="water"
+                    checked={formData.amenities.includes("water")}
+                    onChange={handleAmenityChange}
+                  />
+                  Water
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    value="ac"
+                    checked={formData.amenities.includes("ac")}
+                    onChange={handleAmenityChange}
+                  />
+                  AC
+                </label>
+              </div>
             </div>
 
             <div className="form-group">
@@ -223,7 +400,7 @@ export default function EditProperty() {
                 ))}
               </div>
               <label htmlFor="images">Upload New Images (Max 10)</label>
-              <input type="file" id="images" name="images" accept="image/*" multiple onChange={handleInputChange} />
+              <input type="file" id="images" name="images" multiple onChange={handleInputChange} accept="image/*" />
             </div>
 
             <div className="form-group">
@@ -240,20 +417,24 @@ export default function EditProperty() {
                 />
               )}
               <label htmlFor="video">Upload New Video</label>
-              <input type="file" id="video" name="video" accept="video/*" onChange={handleInputChange} />
+              <input type="file" id="video" name="video" onChange={handleInputChange} accept="video/*" />
             </div>
 
             <div className="button-group">
               <button type="submit" className="btn btn-primary">
                 Update Property
               </button>
-              <button type="button" onClick={() => navigate("/manage-properties")} className="btn btn-secondary">
+              <Link to="/manage-properties" className="btn btn-secondary">
                 Cancel
-              </button>
+              </Link>
             </div>
           </form>
         </div>
       </main>
+
+      <footer className="footer">
+        <p>&copy; 2024 RoomRental. All rights reserved.</p>
+      </footer>
     </div>
   )
 }

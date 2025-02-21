@@ -85,6 +85,65 @@
 .btn-favorite-active svg {
   fill: red;
 }
+.room-map {
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.room-map h3 {
+  margin-bottom: 10px;
+}
+
+.leaflet-container {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ... (keep existing styles) */
+
+.room-map {
+  margin: 2rem 0;
+}
+
+.room-map h3 {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.map-container {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.map-popup {
+  padding: 8px;
+  min-width: 200px;
+}
+
+.map-popup strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 1rem;
+}
+
+.map-popup p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.leaflet-popup-tip-container {
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+}
+
 
 @media (max-width: 768px) {
   .room-detail-content {
