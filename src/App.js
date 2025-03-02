@@ -30,6 +30,7 @@ function App() {
         <Route path="/room/:id" element={<RoomDetail />} />
         <Route path="/edit-property/:id" element={<EditProperty />} />
         <Route path="RoomMap" element={<RoomMap />} />
+       
 
         
       </Routes>

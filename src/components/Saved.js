@@ -119,6 +119,9 @@ const Saved = () => {
                       <Link to="/settings" className="dropdown-item">
                         Settings
                       </Link>
+                      <Link to="/manage-properties" className="dropdown-item">
+                        Manage Properties 
+                      </Link>
                       <button onClick={handleLogout} className="dropdown-item">
                         Logout
                       </button>
@@ -232,4 +235,3 @@ const Saved = () => {
 }
 
 export default Saved
-
