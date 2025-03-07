@@ -1,17 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
 
 :root {
-  --primary-color: #6366F1;
-  --secondary-color: #10B981;
-  --background-color: #F9FAFB;
+  --primary-color: #6366f1;
+  --secondary-color: #10b981;
+  --background-color: #f9fafb;
   --text-color: #111827;
-  --white: #FFFFFF;
-  --gray: #6B7280;
-  --light-gray: #E5E7EB;
+  --white: #ffffff;
+  --gray: #6b7280;
+  --light-gray: #e5e7eb;
 }
 
 body {
-  font-family: 'Poppins', sans-serif;
+  font-family: "Poppins", sans-serif;
   line-height: 1.5;
   color: var(--text-color);
   background-color: var(--background-color);
@@ -123,20 +123,59 @@ body {
   text-align: center;
 }
 
-.auth-buttons {
+.auth-buttons-container {
   display: flex;
   gap: 0.75rem;
   align-items: center;
 }
 
-.auth-buttons .btn {
-  padding: 0.4rem 0.8rem;
+.auth-buttons-container a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
   font-size: 0.875rem;
-  white-space: nowrap;
+  height: 1.75rem; /* Reduced height */
 }
 
+.auth-signup {
+  color: #6366f1; /* Indigo color */
+  background-color: transparent;
+}
+
+.auth-signup:hover {
+  color: #4f46e5; /* Darker indigo on hover */
+}
+
+.auth-signin {
+  color: #ffffff; /* White text */
+  background-color: #6366f1; /* Indigo background */
+}
+
+.auth-signin:hover {
+  background-color: #4f46e5; /* Darker indigo on hover */
+}
+
+@media (max-width: 480px) {
+  .auth-buttons-container {
+    gap: 0.5rem;
+  }
+
+  .auth-buttons-container a {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Button Styles */
 .btn {
   display: inline-block;
+  align-items: center;
+  justify-content: center;
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   font-weight: 500;
@@ -153,14 +192,17 @@ body {
 }
 
 .btn-primary:hover {
-  background-color: #4338CA;
+  background-color: #4338ca;
 }
 
-.btn-small {
-  min-width: 150px;
-  max-width: 200px;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
+.btn-secondary {
+  background-color: var(--secondary-color);
+  color: var(--white);
+}
+
+.btn-secondary:hover {
+  background-color: #0ea5e9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .btn-outline {
@@ -172,6 +214,150 @@ body {
 .btn-outline:hover {
   background-color: var(--primary-color);
   color: var(--white);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--primary-color);
+}
+
+.btn-ghost:hover {
+  background-color: rgba(99, 102, 241, 0.1);
+}
+
+.btn-icon {
+  padding: 0.5rem;
+  border-radius: 50%;
+}
+
+.btn-small {
+  min-width: 150px;
+  max-width: 200px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* Book Now Button */
+.btn-book {
+  background-color: var(--secondary-color);
+  color: var(--white);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  flex: 0 1 auto;
+  min-width: 90px;
+}
+
+.btn-book:hover {
+  background-color: #0d9488;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Chat Button */
+.btn-chat {
+  background-color: var(--primary-color);
+  color: var(--white);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  flex: 0 1 auto;
+  min-width: 80px;
+}
+
+.btn-chat:hover {
+  background-color: #4338ca;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Save Button (Favorite) */
+.btn-favorite {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 50%;
+}
+
+.btn-favorite svg {
+  transition: all 0.2s ease;
+}
+
+.btn-favorite:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.btn-favorite:hover svg {
+  color: #ef4444 !important;
+  fill: #ef4444 !important;
+  stroke: #ef4444 !important;
+}
+
+.btn-favorite-active {
+  color: #ef4444 !important;
+}
+
+.btn-favorite-active svg {
+  color: #ef4444 !important;
+  fill: #ef4444 !important;
+  stroke: #ef4444 !important;
+}
+
+.btn-favorite:hover,
+.btn-favorite-active:hover {
+  transform: scale(1.1);
+}
+
+/* View Button (inside property card) */
+.btn-view {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #ffffff;
+  color: #000000;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.listing-card:hover .btn-view {
+  opacity: 1;
+}
+
+.listing-card:hover .btn-view:hover {
+  background-color: #f0f0f0;
+}
+
+.btn-view:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.btn-view svg {
+  transition: transform 0.3s ease;
+}
+
+.btn-view:hover svg {
+  transform: scale(1.1);
+}
+
+.btn-outline:hover {
+  background-color: var(--primary-color);
+  color: var(--white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-large {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  height: 3rem;
+  min-width: 3rem;
 }
 
 /* Hero Section */
@@ -210,7 +396,7 @@ body {
   border: 1px solid var(--light-gray);
   border-radius: 0.375rem;
   font-size: 1rem;
-  font-family: 'Poppins', sans-serif;
+  font-family: "Poppins", sans-serif;
 }
 
 .search-form input {
@@ -277,11 +463,13 @@ body {
   color: var(--primary-color);
   margin-bottom: 0.5rem;
 }
+
 .listing-location {
   font-size: 0.9em;
   color: #666;
   margin-bottom: 5px;
 }
+
 .furnished-status {
   font-size: 0.875rem;
   color: var(--gray);
@@ -302,6 +490,7 @@ body {
   gap: 0.25rem;
 }
 
+/* Listing Actions Styles */
 .listing-actions {
   display: flex;
   flex-wrap: wrap;
@@ -335,7 +524,6 @@ body {
   height: 36px;
   padding: 0;
 }
-
 
 /* How It Works Section */
 .how-it-works {
@@ -578,6 +766,19 @@ body {
   .hero p {
     font-size: 1rem;
   }
+  .listing-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .listing-actions .btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+  }
+
+  .btn-favorite {
+    flex: 0 0 auto;
+  }
 }
 
 .view-more-container {
@@ -594,13 +795,36 @@ body {
   min-width: 150px;
 }
 
+.btn-view-all {
+  background-color: var(--white);
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-view-all:hover {
+  background-color: var(--primary-color);
+  color: var(--white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-view-all:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .btn-secondary {
   background-color: var(--secondary-color);
   color: var(--white);
 }
 
 .btn-secondary:hover {
-  background-color: #0EA5E9;
+  background-color: #0ea5e9;
 }
 
 /* Landlord CTA Section */
@@ -741,44 +965,72 @@ body {
   opacity: 1;
 }
 
-.btn-view {
+/* Edit Property Button Styles */
+.button-group {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background-color: #ffffff;
-  color: #000000;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  text-decoration: none;
-  transition: background-color 0.3s ease;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: 2rem;
 }
 
-.btn-view:hover {
-  background-color: #f0f0f0;
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  min-width: 150px;
+  border-radius: 0.5rem;
 }
 
-/* Add these styles to your existing Home.css file */
+.cancel-button {
+  background-color: #10b981; /* Green color */
+  color: white;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  min-width: 150px;
+  border-radius: 0.5rem;
+  margin-top: 1rem; /* Move the cancel button down */
+  align-self: flex-start; /* Align to the top of the flex container */
+}
 
-.btn-favorite {
-  background: transparent;
-  border: none;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 8px;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .button-group {
+    flex-direction: column;
+  }
+
+  .btn-primary,
+  .cancel-button {
+    width: 100%;
+  }
+
+  .cancel-button {
+    margin-top: 0.5rem; /* Less space on mobile */
+  }
+}
+
+/* Listing Card Styles */
+.listing-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.listing-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.btn-favorite-active {
-  color: #ef4444; /* Red color for active state */
+.listing-card:hover .listing-overlay {
+  opacity: 1;
 }
-
-.btn-favorite:hover,
-.btn-favorite-active:hover {
-  transform: scale(1.1);
-}
-
-
 

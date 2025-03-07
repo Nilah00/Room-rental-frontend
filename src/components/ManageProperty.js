@@ -1,26 +1,41 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Edit, Trash2, Home, Plus } from "lucide-react"
+import { Edit, Trash2, Home, Plus, Eye, ArrowUp, ArrowDown, Search } from "lucide-react"
 import { getUserProperties, deleteProperty } from "../services/api"
 import { getImageUrl } from "./imageUtils"
 import "./ManageProperty.css"
 
 export default function ManageProperties() {
   const [properties, setProperties] = useState([])
+  const [filteredProperties, setFilteredProperties] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [sortOrder, setSortOrder] = useState("asc")
+  const [searchTerm, setSearchTerm] = useState("")
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchProperties()
   }, [])
 
+  useEffect(() => {
+    const filtered = properties.filter(
+      (property) =>
+        property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        property.location.toLowerCase().includes(searchTerm.toLowerCase()),
+    )
+    setFilteredProperties(filtered)
+  }, [searchTerm, properties])
+
   const fetchProperties = async () => {
     try {
       setLoading(true)
       const response = await getUserProperties()
       setProperties(response.data)
+      setFilteredProperties(response.data)
     } catch (err) {
       console.error("Error fetching properties:", err)
       setError("Failed to fetch properties. Please try again.")
@@ -45,6 +60,7 @@ export default function ManageProperties() {
         setIsDeleting(true)
         await deleteProperty(propertyId)
         setProperties((prev) => prev.filter((prop) => prop._id !== propertyId))
+        setFilteredProperties((prev) => prev.filter((prop) => prop._id !== propertyId))
         alert("Property deleted successfully!")
       }
     } catch (error) {
@@ -53,6 +69,23 @@ export default function ManageProperties() {
     } finally {
       setIsDeleting(false)
     }
+  }
+
+  const handleSort = () => {
+    const newSortOrder = sortOrder === "asc" ? "desc" : "asc"
+    setSortOrder(newSortOrder)
+    const sorted = [...filteredProperties].sort((a, b) => {
+      if (newSortOrder === "asc") {
+        return a.price - b.price
+      } else {
+        return b.price - a.price
+      }
+    })
+    setFilteredProperties(sorted)
+  }
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value)
   }
 
   if (loading) {
@@ -91,53 +124,79 @@ export default function ManageProperties() {
           <Plus size={18} />
           Add New Property
         </Link>
+        <div className="search-bar">
+          <Search size={18} />
+          <input type="text" placeholder="Search properties..." value={searchTerm} onChange={handleSearch} />
+        </div>
       </div>
 
-      {!properties || properties.length === 0 ? (
+      {!filteredProperties || filteredProperties.length === 0 ? (
         <div className="no-properties-message">
-          <p>You haven't added any properties yet.</p>
-          <p>Click the "Add New Property" button to get started!</p>
+          <p>No properties found.</p>
+          <p>Add a new property or try a different search term.</p>
         </div>
       ) : (
-        <div className="properties-grid">
-          {properties.map((property) => (
-            <div key={property._id} className="property-card">
-              <div className="property-image-container">
-                <img
-                  src={property.images?.[0] ? getImageUrl(property.images[0]) : "/placeholder.svg"}
-                  alt={property.title}
-                  className="property-image"
-                  onError={(e) => {
-                    console.error("Image failed to load:", e.target.src)
-                    e.target.src = "/placeholder.svg"
-                    e.target.onerror = null
-                  }}
-                />
-              </div>
-              <div className="property-details">
-                <h2>{property.title || "Untitled Property"}</h2>
-                <p className="property-location">{property.location || "Location not specified"}</p>
-                <p className="property-price">Rs {property.price ? property.price.toLocaleString() : "N/A"}/month</p>
-                <div className="property-actions">
-                  <button onClick={() => handleEdit(property._id)} className="edit-button" title="Edit property">
-                    <Edit size={16} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(property._id, property.title)}
-                    className="delete-button"
-                    title="Delete property"
-                    disabled={isDeleting}
-                  >
-                    <Trash2 size={16} />
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="properties-table-container">
+          <table className="properties-table">
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Title</th>
+                <th>Location</th>
+                <th onClick={handleSort} className="sortable-header">
+                  Price
+                  {sortOrder === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                </th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProperties.map((property) => (
+                <tr key={property._id}>
+                  <td>
+                    <img
+                      src={property.images?.[0] ? getImageUrl(property.images[0]) : "/placeholder.svg"}
+                      alt={property.title}
+                      className="property-thumbnail"
+                      onError={(e) => {
+                        console.error("Image failed to load:", e.target.src)
+                        e.target.src = "/placeholder.svg"
+                        e.target.onerror = null
+                      }}
+                    />
+                  </td>
+                  <td>{property.title || "Untitled Property"}</td>
+                  <td>{property.location || "Location not specified"}</td>
+                  <td>Rs {property.price ? property.price.toLocaleString() : "N/A"}/month</td>
+                  <td>
+                    <div className="property-actions">
+                      <button
+                        onClick={() => navigate(`/room/${property._id}`)}
+                        className="view-button"
+                        title="View property"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button onClick={() => handleEdit(property._id)} className="edit-button" title="Edit property">
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(property._id, property.title)}
+                        className="delete-button"
+                        title="Delete property"
+                        disabled={isDeleting}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   )
 }
+

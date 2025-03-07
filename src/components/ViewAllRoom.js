@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import axios from "axios"
-import { Heart, Eye, MessageCircle, Car, Wifi, Droplet, Bed, Bath, Snowflake } from "lucide-react"
+import { Heart, Eye, MessageCircle, Car, Wifi, Droplet, Bed, Bath, Snowflake, Search } from "lucide-react"
 import ChatBox from "./ChatBox"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import "./ViewAllRoom.css"
@@ -75,7 +75,6 @@ function ViewAllRooms() {
     setError(null)
     try {
       const response = await axios.get("http://localhost:5000/api/properties")
-      console.log("Fetched rooms:", response.data)
       setRooms(response.data)
       setFilteredRooms(response.data)
     } catch (error) {
@@ -100,6 +99,10 @@ function ViewAllRooms() {
   }
 
   const toggleFavorite = (room) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
     setFavorites((prev) => {
       const newFavorites = prev.some((fav) => fav._id === room._id)
         ? prev.filter((fav) => fav._id !== room._id)
@@ -110,6 +113,10 @@ function ViewAllRooms() {
   }
 
   const handleBookNow = (room) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
     navigate(`/booknow/${room._id}`, { state: { roomDetails: room } })
   }
 
@@ -138,11 +145,17 @@ function ViewAllRooms() {
         </Link>
         <h1>All Available Rooms</h1>
 
-        <div className="search-form">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleSearch()
+          }}
+          className="search-form"
+        >
           <input
             type="text"
             name="location"
-            placeholder="Search by location"
+            placeholder="Where do you want to live?"
             value={searchParams.location}
             onChange={handleInputChange}
           />
@@ -158,10 +171,11 @@ function ViewAllRooms() {
             <option value="furnished">Furnished</option>
             <option value="unfurnished">Unfurnished</option>
           </select>
-          <button className="btn btn-primary" onClick={handleSearch}>
-            Search
+          <button type="submit" className="btn btn-search">
+            
+            Search Rooms
           </button>
-        </div>
+        </form>
 
         <div className="listings-grid">
           {filteredRooms.map((room) => (
@@ -174,7 +188,7 @@ function ViewAllRooms() {
                   onError={handleImageError}
                 />
                 <div className="listing-overlay">
-                  <Link to={`/room/${room._id}`} className="btn btn-primary btn-view">
+                  <Link to={`/room/${room._id}`} className="btn btn-view">
                     <Eye size={20} /> View
                   </Link>
                 </div>
@@ -186,44 +200,58 @@ function ViewAllRooms() {
                 <p className="furnished-status">{room.furnished ? "Furnished" : "Unfurnished"}</p>
                 <div className="amenities">
                   <div className="amenity">
-                    <Bed size={16} /> {room.bedrooms} {room.bedrooms === 1 ? "bed" : "beds"}
+                    <Bed size={16} />
+                    <span>
+                      {room.bedrooms} {room.bedrooms === 1 ? "bed" : "beds"}
+                    </span>
                   </div>
                   <div className="amenity">
-                    <Bath size={16} /> {room.bathrooms} {room.bathrooms === 1 ? "bath" : "baths"}
+                    <Bath size={16} />
+                    <span>
+                      {room.bathrooms} {room.bathrooms === 1 ? "bath" : "baths"}
+                    </span>
                   </div>
                   {room.amenities.includes("parking") && (
                     <div className="amenity">
-                      <Car size={16} /> Parking
+                      <Car size={16} />
+                      <span>Parking</span>
                     </div>
                   )}
                   {room.amenities.includes("wifi") && (
                     <div className="amenity">
-                      <Wifi size={16} /> WiFi
+                      <Wifi size={16} />
+                      <span>WiFi</span>
                     </div>
                   )}
                   {room.amenities.includes("water") && (
                     <div className="amenity">
-                      <Droplet size={16} /> Water
+                      <Droplet size={16} />
+                      <span>Water</span>
                     </div>
                   )}
                   {room.amenities.includes("ac") && (
                     <div className="amenity">
-                      <Snowflake size={16} /> AC
+                      <Snowflake size={16} />
+                      <span>AC</span>
                     </div>
                   )}
                 </div>
                 <div className="listing-actions">
-                  <button className="btn btn-primary btn-book" onClick={() => handleBookNow(room)}>
+                  <button className="btn btn-book" onClick={() => handleBookNow(room)}>
                     Book Now
                   </button>
-                  <button className="btn btn-outline btn-chat" onClick={() => handleChatWithLandlord(room.owner.name)}>
-                    <MessageCircle size={16} /> Chat with Landlord
+                  <button
+                    className="btn btn-chat"
+                    onClick={() => handleChatWithLandlord(room.owner.name || "Landlord")}
+                  >
+                    <MessageCircle size={16} /> Chat with landlord
                   </button>
                   <button
-                    className={`btn btn-icon ${
-                      favorites.some((fav) => fav._id === room._id) ? "btn-favorite-active" : ""
-                    }`}
+                    className={`btn-favorite ${favorites.some((fav) => fav._id === room._id) ? "btn-favorite-active" : ""}`}
                     onClick={() => toggleFavorite(room)}
+                    aria-label={
+                      favorites.some((fav) => fav._id === room._id) ? "Remove from favorites" : "Add to favorites"
+                    }
                   >
                     <Heart size={20} fill={favorites.some((fav) => fav._id === room._id) ? "currentColor" : "none"} />
                   </button>

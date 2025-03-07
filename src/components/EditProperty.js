@@ -421,13 +421,13 @@ export default function EditProperty() {
             </div>
 
             <div className="button-group">
-              <button type="submit" className="btn btn-primary">
-                Update Property
-              </button>
-              <Link to="/manage-properties" className="btn btn-secondary">
-                Cancel
-              </Link>
-            </div>
+  <button type="submit" className="btn btn-primary">
+    Update Property
+  </button>
+  <Link to="/manage-properties" className="btn btn-secondary cancel-button">
+    Cancel
+  </Link>
+</div>
           </form>
         </div>
       </main>

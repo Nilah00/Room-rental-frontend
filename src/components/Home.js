@@ -25,7 +25,6 @@ import {
   Snowflake,
 } from "lucide-react"
 import "./Home.css"
-import "./RentalMap.css"
 import ChatBox from "./ChatBox"
 import RentalMap from "./RentalMap"
 import { getImageUrl, handleImageError } from "./imageUtils"
@@ -99,6 +98,12 @@ const HomePage = () => {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    // Load favorites from localStorage when the component mounts
+    const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
+    setFavorites(storedFavorites)
+  }, [])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setSearchParams((prev) => ({
@@ -124,6 +129,7 @@ const HomePage = () => {
         ? prev.filter((fav) => fav._id !== listingId)
         : [...prev, listing]
 
+      // Update localStorage
       localStorage.setItem("favorites", JSON.stringify(newFavorites))
       return newFavorites
     })
@@ -240,7 +246,7 @@ const HomePage = () => {
                         Settings
                       </Link>
                       <Link to="/manage-properties" className="dropdown-item">
-                        Manage Properties 
+                        Manage Properties
                       </Link>
                       <button onClick={handleLogout} className="dropdown-item">
                         Logout
@@ -249,14 +255,14 @@ const HomePage = () => {
                   )}
                 </div>
               ) : (
-                <div className="auth-buttons">
-                  <Link to="/login" className="btn btn-outline">
-                    Sign In
-                  </Link>
-                  <Link to="/register" className="btn btn-primary">
-                    Sign Up
-                  </Link>
-                </div>
+                <div className="auth-buttons-container">
+                  <Link to="/login" className="auth-signup">
+                  Sign In
+                </Link>
+              <Link to="/register" className="auth-signin">
+                Sign Up
+              </Link>
+            </div>
               )}
             </div>
           </nav>
@@ -287,7 +293,7 @@ const HomePage = () => {
               <option value="furnished">Furnished</option>
               <option value="unfurnished">Unfurnished</option>
             </select>
-            <button type="submit" className="btn btn-primary">
+            <button type="submit" className="btn btn-search">
               Search Rooms
             </button>
           </form>
@@ -319,10 +325,10 @@ const HomePage = () => {
                     <p>{property.location}</p>
                     <p>Rs {property.price.toLocaleString()}/month</p>
                     <div className="property-actions">
-                      <button onClick={() => handleEditProperty(property._id)} className="btn btn-secondary">
+                      <button onClick={() => handleEditProperty(property._id)} className="btn btn-edit">
                         <Edit size={16} /> Edit
                       </button>
-                      <button onClick={() => handleDeleteProperty(property._id)} className="btn btn-danger">
+                      <button onClick={() => handleDeleteProperty(property._id)} className="btn btn-delete">
                         <Trash2 size={16} /> Delete
                       </button>
                     </div>
@@ -331,7 +337,7 @@ const HomePage = () => {
               ))}
             </div>
             <div className="view-more-container">
-              <Link to="/manage-properties" className="btn btn-primary">
+              <Link to="/manage-properties" className="btn btn-manage">
                 Manage All Properties
               </Link>
             </div>
@@ -356,7 +362,7 @@ const HomePage = () => {
                       onError={handleImageError}
                     />
                     <div className="listing-overlay">
-                      <Link to={`/room/${listing._id}`} className="btn btn-primary btn-view">
+                      <Link to={`/room/${listing._id}`} className="btn btn-view">
                         <Eye size={20} /> View
                       </Link>
                     </div>
@@ -401,17 +407,17 @@ const HomePage = () => {
                       )}
                     </div>
                     <div className="listing-actions">
-                      <button className="btn btn-primary btn-book" onClick={() => handleBookNow(listing)}>
+                      <button className="btn btn-book" onClick={() => handleBookNow(listing)}>
                         Book Now
                       </button>
                       <button
-                        className="btn btn-outline btn-chat"
+                        className="btn btn-chat"
                         onClick={() => handleChatWithLandlord(listing.owner.name || "Landlord")}
                       >
-                        <MessageCircle size={16} /> Chat with Landlord
+                        <MessageCircle size={16} /> Chat with landlord
                       </button>
                       <button
-                        className={`btn btn-icon ${favorites.some((fav) => fav._id === listing._id) ? "btn-favorite-active" : "btn-favorite"}`}
+                        className={`btn-favorite ${favorites.some((fav) => fav._id === listing._id) ? "btn-favorite-active" : ""}`}
                         onClick={() => toggleFavorite(listing)}
                         aria-label={
                           favorites.some((fav) => fav._id === listing._id)
@@ -433,7 +439,7 @@ const HomePage = () => {
             <p>No featured rooms available at the moment.</p>
           )}
           <div className="view-more-container">
-            <Link to="/rooms" className="btn btn-secondary">
+            <Link to="/rooms" className="btn btn-view-all">
               View All Rooms
             </Link>
           </div>
@@ -444,7 +450,7 @@ const HomePage = () => {
         <div className="container">
           <h2>Are You a Landlord?</h2>
           <p>List your room on RoomRental and connect with thousands of potential tenants.</p>
-          <Link to="/add-property" className="btn btn-primary btn-small btn-center">
+          <Link to="/add-property" className="btn btn-add-property">
             Add Your Property
           </Link>
         </div>
@@ -612,3 +618,4 @@ const HomePage = () => {
 }
 
 export default HomePage
+

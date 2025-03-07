@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { Heart, Bell, MessageCircle, User, Home, Car, Wifi, Droplet, Bed, Bath, Snowflake, Eye } from "lucide-react"
 import ChatBox from "./ChatBox"
 import { getImageUrl, handleImageError } from "./imageUtils"
+import "./Saved.css"
 
 const Saved = () => {
   const [savedListings, setSavedListings] = useState([])
@@ -120,7 +121,7 @@ const Saved = () => {
                         Settings
                       </Link>
                       <Link to="/manage-properties" className="dropdown-item">
-                        Manage Properties 
+                        Manage Properties
                       </Link>
                       <button onClick={handleLogout} className="dropdown-item">
                         Logout
@@ -143,11 +144,11 @@ const Saved = () => {
         </div>
       </header>
 
-      <section className="featured-listings">
+      <section className="saved-listings">
         <div className="container">
           <div className="saved-header">
             <h2>Saved Listings</h2>
-            <Link to="/" className="btn btn-secondary">
+            <Link to="/" className="btn btn-secondary back-to-home">
               Back to Home
             </Link>
           </div>
@@ -165,7 +166,7 @@ const Saved = () => {
                       onError={handleImageError}
                     />
                     <div className="listing-overlay">
-                      <Link to={`/room/${listing.id || listing._id}`} className="btn btn-primary btn-view">
+                      <Link to={`/room/${listing.id || listing._id}`} className="btn btn-view">
                         <Eye size={20} /> View
                       </Link>
                     </div>
@@ -177,44 +178,54 @@ const Saved = () => {
                     <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
                     <div className="amenities">
                       <div className="amenity">
-                        <Bed size={16} /> {listing.bedrooms} {listing.bedrooms === 1 ? "bed" : "beds"}
+                        <Bed size={16} />
+                        <span>
+                          {listing.bedrooms} {listing.bedrooms === 1 ? "bed" : "beds"}
+                        </span>
                       </div>
                       <div className="amenity">
-                        <Bath size={16} /> {listing.bathrooms} {listing.bathrooms === 1 ? "bath" : "baths"}
+                        <Bath size={16} />
+                        <span>
+                          {listing.bathrooms} {listing.bathrooms === 1 ? "bath" : "baths"}
+                        </span>
                       </div>
                       {listing.amenities?.includes("parking") && (
                         <div className="amenity">
-                          <Car size={16} /> Parking
+                          <Car size={16} />
+                          <span>Parking</span>
                         </div>
                       )}
                       {listing.amenities?.includes("wifi") && (
                         <div className="amenity">
-                          <Wifi size={16} /> WiFi
+                          <Wifi size={16} />
+                          <span>WiFi</span>
                         </div>
                       )}
                       {listing.amenities?.includes("water") && (
                         <div className="amenity">
-                          <Droplet size={16} /> Water
+                          <Droplet size={16} />
+                          <span>Water</span>
                         </div>
                       )}
                       {listing.amenities?.includes("ac") && (
                         <div className="amenity">
-                          <Snowflake size={16} /> AC
+                          <Snowflake size={16} />
+                          <span>AC</span>
                         </div>
                       )}
                     </div>
                     <div className="listing-actions">
-                      <button className="btn btn-primary btn-book" onClick={() => handleBookNow(listing)}>
+                      <button className="btn btn-book" onClick={() => handleBookNow(listing)}>
                         Book Now
                       </button>
                       <button
-                        className="btn btn-outline btn-chat"
+                        className="btn btn-chat"
                         onClick={() => handleChatWithLandlord(listing.owner?.name || "Landlord")}
                       >
-                        <MessageCircle size={16} /> Chat with Landlord
+                        <MessageCircle size={16} /> Chat with landlord
                       </button>
                       <button
-                        className="btn btn-icon btn-favorite-active"
+                        className="btn-favorite btn-favorite-active"
                         onClick={() => removeFavorite(listing.id || listing._id)}
                       >
                         <Heart size={20} fill="currentColor" />
@@ -235,3 +246,4 @@ const Saved = () => {
 }
 
 export default Saved
+
