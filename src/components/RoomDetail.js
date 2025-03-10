@@ -1,7 +1,9 @@
+"use client"
+
 import { useState, useEffect, useCallback } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
-import { Heart, MessageCircle, MapPin } from "lucide-react"
-import { getPropertyById, toggleFavorite, getFavorites } from "../services/api"
+import { Heart, MessageCircle, MapPin, Badge } from "lucide-react"
+import { getPropertyById, toggleFavorite as toggleFavoriteApi, getFavorites } from "../services/api"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import { isAuthenticated } from "../services/auth"
 import ChatBox from "./ChatBox"
@@ -14,18 +16,59 @@ const RoomDetail = () => {
   const [isFavorite, setIsFavorite] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [favorites, setFavorites] = useState([])
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const checkIfFavorite = useCallback(async (roomId) => {
+  // Load favorites from API or localStorage
+  const loadFavorites = useCallback(async () => {
     try {
-      const favorites = await getFavorites()
-      return favorites.some((fav) => fav._id === roomId)
+      if (isLoggedIn) {
+        const response = await getFavorites()
+        const favoritesData = response.data || []
+        setFavorites(favoritesData)
+
+        // Check if current room is in favorites
+        const isCurrentRoomFavorite = favoritesData.some((fav) => {
+          // Check direct match
+          if (fav._id === id || fav.id === id) return true
+
+          // Check if favorite has property field
+          if (fav.property && (fav.property._id === id || fav.property.id === id)) return true
+
+          return false
+        })
+
+        setIsFavorite(isCurrentRoomFavorite)
+      } else {
+        // If not logged in, check localStorage
+        const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
+        setFavorites(storedFavorites)
+
+        // Check if current room is in favorites
+        const isCurrentRoomFavorite = storedFavorites.some((fav) => {
+          if (fav._id === id || fav.id === id) return true
+          if (fav.property && (fav.property._id === id || fav.property.id === id)) return true
+          return false
+        })
+
+        setIsFavorite(isCurrentRoomFavorite)
+      }
     } catch (error) {
-      console.error("Error checking favorites:", error)
-      return false
+      console.error("Error loading favorites:", error)
+      // Fallback to localStorage
+      const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
+      setFavorites(storedFavorites)
+
+      const isCurrentRoomFavorite = storedFavorites.some((fav) => {
+        if (fav._id === id || fav.id === id) return true
+        if (fav.property && (fav.property._id === id || fav.property.id === id)) return true
+        return false
+      })
+
+      setIsFavorite(isCurrentRoomFavorite)
     }
-  }, [])
+  }, [id, isLoggedIn])
 
   const fetchRoomData = useCallback(async () => {
     if (!id) return
@@ -33,16 +76,18 @@ const RoomDetail = () => {
     setIsLoading(true)
     setError(null)
     try {
-      const [roomData, favoriteStatus] = await Promise.all([getPropertyById(id), checkIfFavorite(id)])
+      const roomData = await getPropertyById(id)
       setRoom(roomData)
-      setIsFavorite(favoriteStatus)
+
+      // After fetching room data, load favorites to check if this room is a favorite
+      await loadFavorites()
     } catch (err) {
       console.error("Error fetching room data:", err)
       setError("Failed to load room details. Please try again.")
     } finally {
       setIsLoading(false)
     }
-  }, [id, checkIfFavorite])
+  }, [id, loadFavorites])
 
   useEffect(() => {
     const checkAuth = () => {
@@ -52,11 +97,18 @@ const RoomDetail = () => {
 
     checkAuth()
     fetchRoomData()
-  }, [fetchRoomData])
 
-  useEffect(() => {
-    console.log("Current isFavorite state:", isFavorite)
-  }, [isFavorite])
+    // Listen for favorites updates from other components
+    const handleFavoritesUpdate = () => {
+      loadFavorites()
+    }
+
+    window.addEventListener("favoritesUpdated", handleFavoritesUpdate)
+
+    return () => {
+      window.removeEventListener("favoritesUpdated", handleFavoritesUpdate)
+    }
+  }, [fetchRoomData, loadFavorites])
 
   const handleToggleFavorite = async () => {
     if (!isLoggedIn) {
@@ -66,17 +118,15 @@ const RoomDetail = () => {
 
     try {
       console.log("Toggling favorite for room:", id)
-      const result = await toggleFavorite(id)
-      console.log("Toggle favorite result:", result)
 
-      if (result.success) {
-        setIsFavorite(result.isFavorite)
-        console.log("Updated isFavorite state:", result.isFavorite)
-        // Update local storage with new favorites
-        localStorage.setItem("favorites", JSON.stringify(result.favorites))
-      } else {
-        throw new Error(result.message || "Failed to update favorite status")
-      }
+      // Call the API to toggle favorite status
+      await toggleFavoriteApi(id)
+
+      // Refresh favorites to get updated status
+      await loadFavorites()
+
+      // Notify other components about the change
+      window.dispatchEvent(new CustomEvent("favoritesUpdated"))
     } catch (err) {
       console.error("Error toggling favorite:", err)
     }
@@ -87,6 +137,13 @@ const RoomDetail = () => {
       navigate("/login")
       return
     }
+
+    // Check if room is available for booking
+    if (room.status === "Booked" || room.status === "Not Available" || room.status === "Maintenance") {
+      alert(`This property is currently ${room.status.toLowerCase()} and cannot be booked.`)
+      return
+    }
+
     navigate(`/booknow/${id}`, { state: { roomDetails: room } })
   }
 
@@ -109,6 +166,15 @@ const RoomDetail = () => {
           Back to Home
         </Link>
         <h1>{room.title}</h1>
+
+        {/* Display room status */}
+        <div
+          className={`availability-badge ${room.status ? room.status.toLowerCase().replace(/\s+/g, "-") : "available"}`}
+        >
+          <Badge size={14} />
+          <span>{room.status || "Available"}</span>
+        </div>
+
         <div className="room-detail-content">
           <div className="room-images">
             {room.images && room.images.length > 0 ? (
@@ -152,10 +218,17 @@ const RoomDetail = () => {
             <div className="room-details">
               <p>Bedrooms: {room.bedrooms}</p>
               <p>Bathrooms: {room.bathrooms}</p>
+              <p>
+                Status: <span className="status-text">{room.status || "Available"}</span>
+              </p>
             </div>
             <div className="room-actions">
-              <button className="btn btn-primary" onClick={handleBookNow}>
-                Book Now
+              <button
+                className="btn btn-primary"
+                onClick={handleBookNow}
+                disabled={room.status === "Booked" || room.status === "Not Available" || room.status === "Maintenance"}
+              >
+                {room.status === "Available" || !room.status ? "Book Now" : room.status}
               </button>
               <button className="btn btn-outline" onClick={handleChatWithLandlord}>
                 <MessageCircle size={20} /> Chat with Landlord
@@ -165,7 +238,7 @@ const RoomDetail = () => {
                 onClick={handleToggleFavorite}
                 aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
               >
-                <Heart size={20} fill={isFavorite ? "red" : "none"} />
+                <Heart size={20} fill={isFavorite ? "currentColor" : "none"} />
               </button>
             </div>
           </div>
@@ -183,3 +256,4 @@ const RoomDetail = () => {
 }
 
 export default RoomDetail
+

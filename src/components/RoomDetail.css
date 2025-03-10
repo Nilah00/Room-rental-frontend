@@ -144,6 +144,57 @@
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
 }
 
+/* Add these styles for the availability badge */
+.availability-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  width: fit-content;
+}
+
+.availability-badge.available {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.availability-badge.booked {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.availability-badge.not-available {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.availability-badge.maintenance {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.availability-badge.reserved {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.status-text {
+  font-weight: 600;
+}
+
+/* Update the disabled button style */
+.btn.btn-primary:disabled {
+  background-color: #e5e7eb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+
+
 
 @media (max-width: 768px) {
   .room-detail-content {

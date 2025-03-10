@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import axios from "axios"
-import { Heart, Eye, MessageCircle, Car, Wifi, Droplet, Bed, Bath, Snowflake, Search } from "lucide-react"
+import { Heart, Eye, MessageCircle, Car, Wifi, Droplet, Bed, Bath, Snowflake, Search, Badge } from "lucide-react"
 import ChatBox from "./ChatBox"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import "./ViewAllRoom.css"
@@ -15,6 +15,7 @@ function ViewAllRooms() {
     location: "",
     priceRange: "",
     furnished: "",
+    availability: "",
   })
   const [filteredRooms, setFilteredRooms] = useState([])
   const [showChat, setShowChat] = useState(false)
@@ -45,8 +46,12 @@ function ViewAllRooms() {
         !searchParams.furnished ||
         (searchParams.furnished === "furnished" && room.furnished) ||
         (searchParams.furnished === "unfurnished" && !room.furnished)
+      const matchesAvailability =
+        !searchParams.availability ||
+        room.status === searchParams.availability ||
+        (searchParams.availability === "Available" && !room.status)
 
-      return matchesLocation && matchesPrice && matchesFurnished
+      return matchesLocation && matchesPrice && matchesFurnished && matchesAvailability
     })
 
     setFilteredRooms(filtered)
@@ -63,6 +68,7 @@ function ViewAllRooms() {
       location: params.get("location") || "",
       priceRange: params.get("priceRange") || "",
       furnished: params.get("furnished") || "",
+      availability: params.get("availability") || "",
     })
   }, [location.search])
 
@@ -171,9 +177,16 @@ function ViewAllRooms() {
             <option value="furnished">Furnished</option>
             <option value="unfurnished">Unfurnished</option>
           </select>
+          <select name="availability" value={searchParams.availability} onChange={handleInputChange}>
+            <option value="">Availability Status</option>
+            <option value="Available">Available</option>
+            <option value="Booked">Booked</option>
+            <option value="Not Available">Not Available</option>
+            <option value="Maintenance">Maintenance</option>
+            <option value="Reserved">Reserved</option>
+          </select>
           <button type="submit" className="btn btn-search">
-            
-            Search Rooms
+            <Search size={20} /> Search Rooms
           </button>
         </form>
 
@@ -195,6 +208,12 @@ function ViewAllRooms() {
               </div>
               <div className="listing-details">
                 <h3>{room.title}</h3>
+                <div
+                  className={`availability-badge ${room.status ? room.status.toLowerCase().replace(/\s+/g, "-") : "available"}`}
+                >
+                  <Badge size={14} />
+                  <span>{room.status || "Available"}</span>
+                </div>
                 <p className="listing-location">{room.location}</p>
                 <p className="listing-price">Rs {room.price.toLocaleString()}/month</p>
                 <p className="furnished-status">{room.furnished ? "Furnished" : "Unfurnished"}</p>
@@ -237,8 +256,14 @@ function ViewAllRooms() {
                   )}
                 </div>
                 <div className="listing-actions">
-                  <button className="btn btn-book" onClick={() => handleBookNow(room)}>
-                    Book Now
+                  <button
+                    className="btn btn-book"
+                    onClick={() => handleBookNow(room)}
+                    disabled={
+                      room.status === "Booked" || room.status === "Not Available" || room.status === "Maintenance"
+                    }
+                  >
+                    {room.status === "Available" || !room.status ? "Book Now" : room.status}
                   </button>
                   <button
                     className="btn btn-chat"

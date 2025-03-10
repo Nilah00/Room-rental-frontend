@@ -252,6 +252,107 @@
   color: var(--primary-color);
 }
 
+/* Add these styles to your existing Auth.css file */
+
+.login-type-selector {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.login-type-dropdown {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background-color: #fff;
+  font-size: 14px;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+.login-type-dropdown:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+/* Style for admin login option */
+.login-type-dropdown option[value="admin"] {
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+/* Style for the login button when admin is selected */
+.auth-button[data-login-type="admin"] {
+  background-color: #e74c3c;
+}
+
+/* Add a warning message for admin login */
+.admin-login-warning {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  display: none;
+}
+
+/* Show warning when admin login type is selected */
+.admin-login-warning.visible {
+  display: block;
+}
+
+/* Add this to your existing Auth.css file */
+
+.redirect-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  border: 1px solid #f5c6cb;
+  text-align: center;
+}
+
+.auth-redirect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  padding: 2rem;
+  text-align: center;
+}
+
+.auth-redirect h2 {
+  margin-bottom: 1rem;
+  color: #e74c3c;
+}
+
+.auth-redirect p {
+  margin-bottom: 1.5rem;
+  color: #555;
+}
+
+.auth-redirect .btn {
+  padding: 0.5rem 1.5rem;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.auth-redirect .btn:hover {
+  background-color: #2980b9;
+}
+
+
+
 @media (max-width: 480px) {
   .auth-card {
     padding: 2rem;

@@ -2,7 +2,21 @@
 
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Heart, Bell, MessageCircle, User, Home, Car, Wifi, Droplet, Bed, Bath, Snowflake, Eye } from "lucide-react"
+import {
+  Heart,
+  Bell,
+  MessageCircle,
+  User,
+  Home,
+  Car,
+  Wifi,
+  Droplet,
+  Bed,
+  Bath,
+  Snowflake,
+  Eye,
+  Badge,
+} from "lucide-react"
 import ChatBox from "./ChatBox"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import "./Saved.css"
@@ -47,7 +61,7 @@ const Saved = () => {
       navigate("/login")
       return
     }
-    navigate(`/booknow/${listing.id}`, { state: { roomDetails: listing } })
+    navigate(`/booknow/${listing.id || listing._id}`, { state: { roomDetails: listing } })
   }
 
   const handleLogout = () => {
@@ -173,6 +187,12 @@ const Saved = () => {
                   </div>
                   <div className="listing-details">
                     <h3>{listing.title}</h3>
+                    <div
+                      className={`availability-badge ${listing.status ? listing.status.toLowerCase().replace(/\s+/g, "-") : "available"}`}
+                    >
+                      <Badge size={14} />
+                      <span>{listing.status || "Available"}</span>
+                    </div>
                     <p className="listing-location">{listing.location}</p>
                     <p className="listing-price">Rs {listing.price?.toLocaleString()}/month</p>
                     <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
@@ -215,8 +235,16 @@ const Saved = () => {
                       )}
                     </div>
                     <div className="listing-actions">
-                      <button className="btn btn-book" onClick={() => handleBookNow(listing)}>
-                        Book Now
+                      <button
+                        className="btn btn-book"
+                        onClick={() => handleBookNow(listing)}
+                        disabled={
+                          listing.status === "Booked" ||
+                          listing.status === "Not Available" ||
+                          listing.status === "Maintenance"
+                        }
+                      >
+                        {listing.status === "Available" || !listing.status ? "Book Now" : listing.status}
                       </button>
                       <button
                         className="btn btn-chat"

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Edit, Trash2, Home, Plus, Eye, ArrowUp, ArrowDown, Search } from "lucide-react"
-import { getUserProperties, deleteProperty } from "../services/api"
+import { getUserProperties, deleteProperty, updatePropertyStatus, getFeaturedProperties } from "../services/api"
 import { getImageUrl } from "./imageUtils"
 import "./ManageProperty.css"
 
@@ -15,6 +15,7 @@ export default function ManageProperties() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [sortOrder, setSortOrder] = useState("asc")
   const [searchTerm, setSearchTerm] = useState("")
+  const [updatingStatus, setUpdatingStatus] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -68,6 +69,56 @@ export default function ManageProperties() {
       alert(`Failed to delete property: ${error.message}`)
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleStatusChange = async (propertyId, newStatus) => {
+    if (updatingStatus) return
+
+    try {
+      setUpdatingStatus(true)
+      console.log(`Attempting to update property ${propertyId} status to ${newStatus}`)
+
+      // Create the status update data
+      const statusData = {
+        status: newStatus,
+      }
+
+      // Make the API call and get the updated property
+      const updatedProperty = await updatePropertyStatus(propertyId, statusData)
+      console.log("Status update result:", updatedProperty)
+
+      if (!updatedProperty || !updatedProperty._id) {
+        throw new Error("Invalid response from server")
+      }
+
+      // Verify the status was updated correctly
+      console.log("Updated property status:", updatedProperty.status)
+
+      // Update the local state with the complete updated property data
+      setProperties((prev) => prev.map((prop) => (prop._id === propertyId ? updatedProperty : prop)))
+
+      setFilteredProperties((prev) => prev.map((prop) => (prop._id === propertyId ? updatedProperty : prop)))
+
+      // Force a refresh of the featured properties
+      try {
+        await getFeaturedProperties()
+        // Dispatch an event to update the home page's featured listings
+        window.dispatchEvent(
+          new CustomEvent("propertyStatusUpdated", {
+            detail: { updatedProperty },
+          }),
+        )
+      } catch (error) {
+        console.error("Error refreshing featured properties:", error)
+      }
+
+      alert(`Property status updated to "${newStatus}". The changes will be reflected across the site.`)
+    } catch (error) {
+      console.error("Error updating property status:", error)
+      alert(`Failed to update property status: ${error.message || "Please try again"}`)
+    } finally {
+      setUpdatingStatus(false)
     }
   }
 
@@ -147,6 +198,7 @@ export default function ManageProperties() {
                   Price
                   {sortOrder === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
                 </th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -168,6 +220,23 @@ export default function ManageProperties() {
                   <td>{property.title || "Untitled Property"}</td>
                   <td>{property.location || "Location not specified"}</td>
                   <td>Rs {property.price ? property.price.toLocaleString() : "N/A"}/month</td>
+                  <td>
+                    <select
+                      className="property-status-select"
+                      value={property.status || "Available"}
+                      onChange={(e) => {
+                        console.log("Changing status from", property.status, "to", e.target.value)
+                        handleStatusChange(property._id, e.target.value)
+                      }}
+                      disabled={updatingStatus}
+                    >
+                      <option value="Available">Available</option>
+                      <option value="Booked">Booked</option>
+                      <option value="Not Available">Not Available</option>
+                      <option value="Maintenance">Maintenance</option>
+                      <option value="Reserved">Reserved</option>
+                    </select>
+                  </td>
                   <td>
                     <div className="property-actions">
                       <button

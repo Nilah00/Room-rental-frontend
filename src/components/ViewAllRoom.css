@@ -68,10 +68,10 @@
   background-color: #4338ca;
 }
 
-/* Additional styles to match Home.js */
+/* Modified listings grid to make cards wider */
 .listings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 2rem;
   margin-top: 2rem;
 }
@@ -140,9 +140,11 @@
   margin-bottom: 1rem;
 }
 
+/* Modified amenities to better fit all 6 options */
 .amenities {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
@@ -152,12 +154,16 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  background-color: #f9fafb;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  flex: 0 0 auto;
 }
 
 .listing-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
   justify-content: space-between;
   align-items: center;
 }
@@ -197,5 +203,73 @@
 
 .btn-favorite-active {
   color: #ef4444;
+}
+
+/* Add these styles for the availability badge */
+.availability-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.availability-badge.available {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.availability-badge.booked {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.availability-badge.not-available {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.availability-badge.maintenance {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.availability-badge.reserved {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+/* Update the disabled button style */
+.btn.btn-book:disabled {
+  background-color: #e5e7eb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+
+
+/* Add responsive breakpoints for different screen sizes */
+@media (max-width: 1200px) {
+  .listings-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .listings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .amenities {
+    flex-wrap: wrap;
+  }
+
+  .amenity {
+    flex: 0 0 calc(33.333% - 0.5rem);
+  }
 }
 

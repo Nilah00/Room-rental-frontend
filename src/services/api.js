@@ -7,6 +7,11 @@ console.log("API URL:", API_URL)
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  // Add withCredentials if your API requires cookies
+  withCredentials: true,
 })
 
 // Request interceptor for adding auth token
@@ -54,10 +59,18 @@ api.interceptors.response.use(
 // Property-related API calls
 export const getFeaturedProperties = () => {
   console.log("Fetching featured properties")
-  return api.get("/properties/latest").catch((error) => {
-    console.error("Error fetching featured properties:", error)
-    throw error
-  })
+  return api
+    .get("/properties/latest", {
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    })
+    .catch((error) => {
+      console.error("Error fetching featured properties:", error)
+      throw error
+    })
 }
 
 export const getProperties = () => api.get("/properties")
@@ -130,7 +143,61 @@ export const addProperty = async (propertyData) => {
   }
 }
 
-export const updateProperty = (id, propertyData) => api.put(`/properties/${id}`, propertyData)
+export const updateProperty = async (id, propertyData) => {
+  console.log("Updating property:", id, propertyData)
+  try {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      throw new Error("Authentication required")
+    }
+
+    // Make a direct axios call to ensure proper headers
+    const response = await axios({
+      method: "put",
+      url: `${API_URL}/properties/${id}`,
+      data: propertyData,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+      timeout: 30000, // 30 seconds
+      maxContentLength: 50 * 1024 * 1024, // 50MB
+      maxBodyLength: 50 * 1024 * 1024, // 50MB
+    })
+
+    console.log("Update property response:", response)
+    return response.data
+  } catch (error) {
+    console.error("Error updating property:", error)
+    throw error.response?.data || error
+  }
+}
+
+export const updatePropertyStatus = async (id, statusData) => {
+  console.log(`Updating status for property with id: ${id}`, statusData)
+  try {
+    // Make sure we're using the correct HTTP method (PATCH)
+    const response = await api.patch(`/properties/${id}/status`, statusData)
+
+    console.log("Update property status response:", response)
+
+    // Check if the response contains the property data
+    if (response.data && response.data.property) {
+      console.log("Using property from response")
+      return response.data.property
+    }
+
+    // If not, fetch the updated property
+    console.log("Fetching updated property")
+    const updatedProperty = await api.get(`/properties/${id}`)
+    console.log("Fetched updated property:", updatedProperty.data)
+
+    return updatedProperty.data
+  } catch (error) {
+    console.error("Error updating property status:", error)
+    throw error.response?.data || error
+  }
+}
 
 export const deleteProperty = async (id) => {
   try {
@@ -155,29 +222,69 @@ export const register = (userData) => api.post("/auth/register", userData)
 export const getFavorites = async () => {
   console.log("Fetching user favorites")
   try {
-    const response = await api.get("/users/favorites")
-    console.log("Favorites response:", response.data)
-    return response.data
+    const token = localStorage.getItem("token")
+    if (!token) {
+      console.log("No token found, returning empty favorites")
+      return { data: [] }
+    }
+
+    // Make a direct axios call to ensure proper headers
+    const response = await axios({
+      method: "get",
+      url: `${API_URL}/users/favorites`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    console.log("Favorites response:", response)
+
+    // Update localStorage with the latest favorites
+    if (response.data) {
+      localStorage.setItem("favorites", JSON.stringify(response.data))
+    }
+
+    return response
   } catch (error) {
     console.error("Error fetching favorites:", error)
-    throw error
+    // Return empty array instead of throwing error
+    return { data: [] }
   }
 }
 
 export const toggleFavorite = async (propertyId) => {
   console.log(`Toggling favorite for property with id: ${propertyId}`)
   try {
-    const response = await api.post(`/users/favorites/${propertyId}`)
-    console.log("Toggle favorite response:", response.data)
+    const token = localStorage.getItem("token")
+    if (!token) {
+      throw new Error("Authentication required")
+    }
 
-    if (!response.data.success) {
-      throw new Error(response.data.message || "Failed to update favorite status")
+    // Make a direct axios call to ensure proper headers
+    const response = await axios({
+      method: "post",
+      url: `${API_URL}/users/favorites/${propertyId}`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    console.log("Toggle favorite response:", response)
+
+    // After successful toggle, update the local favorites
+    const favoritesResponse = await getFavorites()
+    if (favoritesResponse.data) {
+      localStorage.setItem("favorites", JSON.stringify(favoritesResponse.data))
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent("favoritesUpdated"))
     }
 
     return response.data
   } catch (error) {
     console.error(`Error toggling favorite for property with id ${propertyId}:`, error)
-    throw error.response?.data || error
+    throw error
   }
 }
 
@@ -207,3 +314,4 @@ export const refreshToken = async () => {
 }
 
 export default api
+

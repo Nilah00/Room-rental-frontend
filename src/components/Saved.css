@@ -243,6 +243,53 @@
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
 }
+/* Update the availability badge styles to constrain width */
+.availability-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  width: fit-content; /* Make the badge only as wide as its content */
+  max-width: 120px; /* Set a maximum width */
+}
+
+.availability-badge.available {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.availability-badge.booked {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.availability-badge.not-available {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.availability-badge.maintenance {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.availability-badge.reserved {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+/* Update the disabled button style */
+.btn.btn-book:disabled {
+  background-color: #e5e7eb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+
 
 @media (max-width: 767px) {
   .saved-page .listings-grid {

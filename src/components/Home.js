@@ -1,14 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import {
   Star,
   Bell,
   MessageCircle,
   User,
-  Edit,
-  Trash2,
   Eye,
   Heart,
   Search,
@@ -23,6 +21,7 @@ import {
   Wifi,
   Droplet,
   Snowflake,
+  Badge,
 } from "lucide-react"
 import "./Home.css"
 import ChatBox from "./ChatBox"
@@ -50,6 +49,7 @@ const HomePage = () => {
   const [error, setError] = useState(null)
 
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,9 +67,13 @@ const HomePage = () => {
           try {
             const [userPropsResponse, favoritesResponse] = await Promise.all([getUserProperties(), getFavorites()])
             setUserProperties(userPropsResponse.data)
-            setFavorites(favoritesResponse.data)
+            // Handle empty favorites response
+            setFavorites(favoritesResponse.data || [])
           } catch (userDataError) {
             console.error("Error fetching user data:", userDataError)
+            // Set empty arrays on error
+            setUserProperties([])
+            setFavorites([])
           }
         } else {
           setIsLoggedIn(false)
@@ -81,7 +85,8 @@ const HomePage = () => {
         }
 
         try {
-          const featuredResponse = await getFeaturedProperties()
+          // Force a fresh request by adding a timestamp to avoid caching
+          const featuredResponse = await getFeaturedProperties(`?_=${Date.now()}`)
           setFeaturedListings(featuredResponse.data)
         } catch (featuredError) {
           console.error("Error fetching featured properties:", featuredError)
@@ -96,12 +101,35 @@ const HomePage = () => {
     }
 
     fetchData()
-  }, [])
+  }, [location.pathname]) // Add location.pathname as a dependency
+
+  const loadFavorites = () => {
+    try {
+      const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
+      setFavorites(storedFavorites)
+    } catch (error) {
+      console.error("Error loading favorites from localStorage:", error)
+      setFavorites([])
+    }
+  }
 
   useEffect(() => {
     // Load favorites from localStorage when the component mounts
-    const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
-    setFavorites(storedFavorites)
+    loadFavorites()
+    // Add event listener for property status updates
+    const handlePropertyUpdate = (event) => {
+      const { updatedProperty } = event.detail
+      setFeaturedListings((prev) =>
+        prev.map((listing) => (listing._id === updatedProperty._id ? updatedProperty : listing)),
+      )
+    }
+
+    window.addEventListener("propertyStatusUpdated", handlePropertyUpdate)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("propertyStatusUpdated", handlePropertyUpdate)
+    }
   }, [])
 
   const handleInputChange = (e) => {
@@ -257,12 +285,12 @@ const HomePage = () => {
               ) : (
                 <div className="auth-buttons-container">
                   <Link to="/login" className="auth-signup">
-                  Sign In
-                </Link>
-              <Link to="/register" className="auth-signin">
-                Sign Up
-              </Link>
-            </div>
+                    Sign In
+                  </Link>
+                  <Link to="/register" className="auth-signin">
+                    Sign Up
+                  </Link>
+                </div>
               )}
             </div>
           </nav>
@@ -307,47 +335,30 @@ const HomePage = () => {
         </div>
       </section>
 
-      {isLoggedIn && userProperties.length > 0 && (
-        <section className="user-properties">
-          <div className="container">
-            <h2>Your Properties</h2>
-            <div className="properties-grid">
-              {userProperties.map((property) => (
-                <div key={property._id} className="property-card">
-                  <img
-                    src={getImageUrl(property.images[0]) || "/placeholder.svg"}
-                    alt={property.title}
-                    className="property-image"
-                    onError={handleImageError}
-                  />
-                  <div className="property-details">
-                    <h3>{property.title}</h3>
-                    <p>{property.location}</p>
-                    <p>Rs {property.price.toLocaleString()}/month</p>
-                    <div className="property-actions">
-                      <button onClick={() => handleEditProperty(property._id)} className="btn btn-edit">
-                        <Edit size={16} /> Edit
-                      </button>
-                      <button onClick={() => handleDeleteProperty(property._id)} className="btn btn-delete">
-                        <Trash2 size={16} /> Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="view-more-container">
-              <Link to="/manage-properties" className="btn btn-manage">
-                Manage All Properties
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
-
       <section className="featured-listings">
         <div className="container">
-          <h2>Featured Rooms</h2>
+          <div className="section-header">
+            <h2>Featured Rooms</h2>
+            <button
+              onClick={() => {
+                setIsLoading(true)
+                getFeaturedProperties(`?_=${Date.now()}`)
+                  .then((response) => {
+                    setFeaturedListings(response.data)
+                    setIsLoading(false)
+                  })
+                  .catch((error) => {
+                    console.error("Error refreshing listings:", error)
+                    setError("Failed to refresh listings")
+                    setIsLoading(false)
+                  })
+              }}
+              className="btn btn-refresh"
+              disabled={isLoading}
+            >
+              {isLoading ? "Refreshing..." : "Refresh Listings"}
+            </button>
+          </div>
           {featuredListings.length > 0 ? (
             <div className="listings-grid">
               {featuredListings.map((listing) => (
@@ -369,6 +380,12 @@ const HomePage = () => {
                   </div>
                   <div className="listing-details">
                     <h3>{listing.title}</h3>
+                    <div
+                      className={`availability-badge ${listing.status ? listing.status.toLowerCase().replace(/\s+/g, "-") : "available"}`}
+                    >
+                      <Badge size={14} />
+                      <span>{listing.status || "Available"}</span>
+                    </div>
                     <p className="listing-location">{listing.location}</p>
                     <p className="listing-price">Rs {listing.price.toLocaleString()}/month</p>
                     <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
@@ -407,8 +424,16 @@ const HomePage = () => {
                       )}
                     </div>
                     <div className="listing-actions">
-                      <button className="btn btn-book" onClick={() => handleBookNow(listing)}>
-                        Book Now
+                      <button
+                        className="btn btn-book"
+                        onClick={() => handleBookNow(listing)}
+                        disabled={
+                          listing.status === "Booked" ||
+                          listing.status === "Not Available" ||
+                          listing.status === "Maintenance"
+                        }
+                      >
+                        {listing.status === "Available" || !listing.status ? "Book Now" : listing.status}
                       </button>
                       <button
                         className="btn btn-chat"

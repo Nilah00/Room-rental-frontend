@@ -72,26 +72,36 @@ export default function EditProperty() {
   const fetchPropertyDetails = async () => {
     try {
       setLoading(true)
+      const token = localStorage.getItem("token")
+      if (!token) {
+        throw new Error("Authentication required")
+      }
+
       const property = await getPropertyById(id)
+      console.log("Fetched property:", property)
 
       setFormData({
-        title: property.title,
-        description: property.description,
-        price: property.price,
-        location: property.location,
+        title: property.title || "",
+        description: property.description || "",
+        price: property.price || "",
+        location: property.location || "",
         latitude: property.latitude || center.lat,
         longitude: property.longitude || center.lng,
-        bedrooms: property.bedrooms,
-        bathrooms: property.bathrooms,
-        furnished: property.furnished,
+        bedrooms: property.bedrooms || "",
+        bathrooms: property.bathrooms || "",
+        furnished: property.furnished || false,
         amenities: property.amenities || [],
         images: property.images || [],
         video: property.video || null,
       })
-      setMapPosition({ lat: property.latitude || center.lat, lng: property.longitude || center.lng })
+
+      setMapPosition({
+        lat: property.latitude || center.lat,
+        lng: property.longitude || center.lng,
+      })
     } catch (err) {
       console.error("Error fetching property details:", err)
-      setError("Failed to load property details")
+      setError(err.message || "Failed to load property details")
     } finally {
       setLoading(false)
     }
@@ -190,15 +200,19 @@ export default function EditProperty() {
 
       const formDataToSend = new FormData()
 
-      // Add all form fields to FormData with proper type conversion
+      // Add all form fields to FormData
       Object.entries(formData).forEach(([key, value]) => {
         if (key === "images") {
-          value.forEach((image, index) => {
-            if (image instanceof File) {
-              formDataToSend.append(`images`, image)
-            } else {
-              formDataToSend.append("existingImages", image)
-            }
+          // Handle existing images
+          const existingImages = value.filter((img) => typeof img === "string")
+          if (existingImages.length > 0) {
+            formDataToSend.append("existingImages", JSON.stringify(existingImages))
+          }
+
+          // Handle new images
+          const newImages = value.filter((img) => img instanceof File)
+          newImages.forEach((image) => {
+            formDataToSend.append("images", image)
           })
         } else if (key === "video") {
           if (value instanceof File) {
@@ -208,10 +222,8 @@ export default function EditProperty() {
           }
         } else if (key === "amenities") {
           formDataToSend.append(key, JSON.stringify(value))
-        } else if (key === "price") {
-          formDataToSend.append(key, Number.parseFloat(value).toString())
-        } else if (key === "bedrooms" || key === "bathrooms") {
-          formDataToSend.append(key, Number.parseInt(value, 10).toString())
+        } else if (key === "price" || key === "bedrooms" || key === "bathrooms") {
+          formDataToSend.append(key, value.toString())
         } else if (typeof value === "boolean") {
           formDataToSend.append(key, value.toString())
         } else if (value !== null && value !== undefined) {
@@ -222,6 +234,16 @@ export default function EditProperty() {
       // Add map coordinates
       formDataToSend.append("latitude", mapPosition.lat.toString())
       formDataToSend.append("longitude", mapPosition.lng.toString())
+
+      // Log FormData contents for debugging
+      for (const [key, value] of formDataToSend.entries()) {
+        console.log(`${key}:`, value)
+      }
+
+      const token = localStorage.getItem("token")
+      if (!token) {
+        throw new Error("Authentication required")
+      }
 
       await updateProperty(id, formDataToSend)
       alert("Property updated successfully!")
@@ -421,13 +443,13 @@ export default function EditProperty() {
             </div>
 
             <div className="button-group">
-  <button type="submit" className="btn btn-primary">
-    Update Property
-  </button>
-  <Link to="/manage-properties" className="btn btn-secondary cancel-button">
-    Cancel
-  </Link>
-</div>
+              <button type="submit" className="btn btn-primary">
+                Update Property
+              </button>
+              <Link to="/manage-properties" className="btn btn-secondary cancel-button">
+                Cancel
+              </Link>
+            </div>
           </form>
         </div>
       </main>
