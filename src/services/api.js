@@ -4,6 +4,21 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
 
 console.log("API URL:", API_URL)
 
+// Add these variables before the interceptors
+let isRefreshing = false
+let failedQueue = []
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+  failedQueue = []
+}
+
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_URL,
@@ -30,7 +45,7 @@ api.interceptors.request.use(
   },
 )
 
-// Response interceptor for logging, error handling, and token refresh
+// Replace the response interceptor with this improved version
 api.interceptors.response.use(
   (response) => {
     console.log("Response:", response)
@@ -38,19 +53,45 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
+
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If token refresh is already in progress, queue this request
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        })
+          .then((token) => {
+            originalRequest.headers["Authorization"] = `Bearer ${token}`
+            return api(originalRequest)
+          })
+          .catch((err) => Promise.reject(err))
+      }
+
       originalRequest._retry = true
+      isRefreshing = true
+
       try {
         const newToken = await refreshToken()
         api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`
+
+        // Process any queued requests with the new token
+        processQueue(null, newToken)
+
+        // Retry the original request
+        originalRequest.headers["Authorization"] = `Bearer ${newToken}`
         return api(originalRequest)
       } catch (refreshError) {
         console.error("Error refreshing token:", refreshError)
+        processQueue(refreshError, null)
+
         // Redirect to login page
         window.location.href = "/login?expired=true"
         return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
       }
     }
+
     console.error("API Error:", error.response ? error.response.data : error.message)
     return Promise.reject(error)
   },
@@ -73,7 +114,40 @@ export const getFeaturedProperties = () => {
     })
 }
 
-export const getProperties = () => api.get("/properties")
+export const getProperties = async () => {
+  console.log("Fetching all properties")
+  try {
+    const response = await api.get("/properties", {
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    })
+    console.log("Properties response:", response)
+    
+    // Check if the response data contains properties and valid coordinates
+    if (response.data && response.data.length > 0) {
+      response.data.forEach((property) => {
+        console.log(`Property: ${property.name}, Coordinates: ${property.latitude}, ${property.longitude}`);
+      });
+    }
+
+    return response
+  } catch (error) {
+    console.error("Error fetching properties:", error)
+    try {
+      console.log("Trying alternative endpoint for properties")
+      const response = await api.get("/properties/all")
+      console.log("Properties response from alternative endpoint:", response)
+      return response
+    } catch (secondError) {
+      console.error("Error fetching properties from alternative endpoint:", secondError)
+      throw error
+    }
+  }
+}
+
 
 export const getPropertyById = async (id) => {
   console.log(`Fetching property with id: ${id}`)
@@ -122,6 +196,10 @@ export const addProperty = async (propertyData) => {
     })
 
     console.log("Add property response:", response)
+
+    // Dispatch an event to notify components that a property has been added
+    window.dispatchEvent(new CustomEvent("propertyUpdated"))
+
     return response
   } catch (error) {
     console.error("Error in addProperty:", error)
@@ -166,6 +244,10 @@ export const updateProperty = async (id, propertyData) => {
     })
 
     console.log("Update property response:", response)
+
+    // Dispatch an event to notify components that a property has been updated
+    window.dispatchEvent(new CustomEvent("propertyUpdated"))
+
     return response.data
   } catch (error) {
     console.error("Error updating property:", error)
@@ -206,6 +288,10 @@ export const deleteProperty = async (id) => {
     if (!response.data.success) {
       throw new Error(response.data.message || "Failed to delete property")
     }
+
+    // Dispatch an event to notify components that a property has been deleted
+    window.dispatchEvent(new CustomEvent("propertyUpdated"))
+
     return response.data
   } catch (error) {
     console.error("Error in deleteProperty:", error)
@@ -214,7 +300,25 @@ export const deleteProperty = async (id) => {
 }
 
 // User-related API calls
-export const login = (credentials) => api.post("/auth/login", credentials)
+export const login = async (credentials) => {
+  try {
+    const response = await api.post("/auth/login", credentials)
+
+    // Store both token and refreshToken if available
+    if (response.data && response.data.token) {
+      localStorage.setItem("token", response.data.token)
+
+      if (response.data.refreshToken) {
+        localStorage.setItem("refreshToken", response.data.refreshToken)
+      }
+    }
+
+    return response
+  } catch (error) {
+    console.error("Login error:", error)
+    throw error
+  }
+}
 
 export const register = (userData) => api.post("/auth/register", userData)
 
@@ -303,12 +407,44 @@ export const getUserProperties = () => {
 
 export const refreshToken = async () => {
   try {
-    const response = await api.post("/auth/refresh-token")
-    const { token } = response.data
-    localStorage.setItem("token", token)
-    return token
+    // Get the refresh token from localStorage
+    const refreshToken = localStorage.getItem("refreshToken")
+
+    if (!refreshToken) {
+      throw new Error("No refresh token available")
+    }
+
+    // Make a direct axios call without using the intercepted instance
+    const response = await axios.post(
+      `${API_URL}/auth/refresh-token`,
+      { refreshToken },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    )
+
+    console.log("Token refresh response:", response)
+
+    if (response.data && response.data.token) {
+      const { token, refreshToken: newRefreshToken } = response.data
+      localStorage.setItem("token", token)
+
+      // Save the new refresh token if provided
+      if (newRefreshToken) {
+        localStorage.setItem("refreshToken", newRefreshToken)
+      }
+
+      return token
+    } else {
+      throw new Error("Invalid token refresh response")
+    }
   } catch (error) {
     console.error("Error refreshing token:", error)
+    // Clear tokens on refresh failure
+    localStorage.removeItem("token")
+    localStorage.removeItem("refreshToken")
     throw error
   }
 }

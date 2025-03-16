@@ -87,7 +87,54 @@ const HomePage = () => {
         try {
           // Force a fresh request by adding a timestamp to avoid caching
           const featuredResponse = await getFeaturedProperties(`?_=${Date.now()}`)
-          setFeaturedListings(featuredResponse.data)
+
+          // Log the response to help with debugging
+          console.log("Featured properties raw response:", featuredResponse)
+
+          // Get the data from the response
+          let featuredData = featuredResponse.data
+
+          // Ensure we have an array of properties
+          if (!Array.isArray(featuredData)) {
+            if (featuredData.properties) {
+              featuredData = featuredData.properties
+            } else if (featuredData.data) {
+              featuredData = featuredData.data
+            }
+          }
+
+          // Apply local storage overrides for featured status
+          const featuredPropertiesStorage = localStorage.getItem("admin_featured_properties")
+          let featuredOverrides = {}
+
+          if (featuredPropertiesStorage) {
+            try {
+              featuredOverrides = JSON.parse(featuredPropertiesStorage)
+              console.log("Featured overrides from localStorage:", featuredOverrides)
+            } catch (e) {
+              console.error("Error parsing featured properties from localStorage:", e)
+            }
+          }
+
+          // Filter properties that are marked as featured either in the API or in localStorage
+          const filteredFeaturedData = Array.isArray(featuredData)
+            ? featuredData.filter((property) => {
+                const propertyId = property._id || property.id
+                // Check if we have an override in localStorage
+                if (featuredOverrides[propertyId] !== undefined) {
+                  return featuredOverrides[propertyId]
+                }
+                // Otherwise use the property's featured flag
+                return property.featured === true
+              })
+            : []
+
+          console.log("Filtered featured properties:", filteredFeaturedData)
+          setFeaturedListings(filteredFeaturedData)
+
+          if (filteredFeaturedData.length === 0) {
+            console.log("No featured properties found")
+          }
         } catch (featuredError) {
           console.error("Error fetching featured properties:", featuredError)
           setError("Failed to load featured properties. Please try again later.")
@@ -116,6 +163,7 @@ const HomePage = () => {
   useEffect(() => {
     // Load favorites from localStorage when the component mounts
     loadFavorites()
+
     // Add event listener for property status updates
     const handlePropertyUpdate = (event) => {
       const { updatedProperty } = event.detail
@@ -124,13 +172,44 @@ const HomePage = () => {
       )
     }
 
+    // Add event listener for featured status updates
+    const handleFeaturedUpdate = (event) => {
+      const { propertyId, featured } = event.detail
+      console.log(`Property ${propertyId} featured status changed to ${featured}`)
+
+      // If a property is marked as featured, we need to fetch it and add it to the featured listings
+      if (featured) {
+        // Check if the property is already in the featured listings
+        const propertyExists = featuredListings.some((listing) => (listing._id || listing.id) === propertyId)
+
+        if (!propertyExists) {
+          // Fetch the property details and add it to the featured listings
+          const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
+          fetch(`${API_URL}/properties/${propertyId}`)
+            .then((response) => response.json())
+            .then((property) => {
+              console.log("Adding property to featured listings:", property)
+              setFeaturedListings((prev) => [...prev, { ...property, featured: true }])
+            })
+            .catch((error) => {
+              console.error("Error fetching property details:", error)
+            })
+        }
+      } else {
+        // If a property is unmarked as featured, remove it from the featured listings
+        setFeaturedListings((prev) => prev.filter((listing) => (listing._id || listing.id) !== propertyId))
+      }
+    }
+
     window.addEventListener("propertyStatusUpdated", handlePropertyUpdate)
+    window.addEventListener("propertyFeaturedUpdated", handleFeaturedUpdate)
 
     // Cleanup
     return () => {
       window.removeEventListener("propertyStatusUpdated", handlePropertyUpdate)
+      window.removeEventListener("propertyFeaturedUpdated", handleFeaturedUpdate)
     }
-  }, [])
+  }, [featuredListings])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -344,7 +423,45 @@ const HomePage = () => {
                 setIsLoading(true)
                 getFeaturedProperties(`?_=${Date.now()}`)
                   .then((response) => {
-                    setFeaturedListings(response.data)
+                    // Get the data from the response
+                    let featuredData = response.data
+
+                    // Ensure we have an array of properties
+                    if (!Array.isArray(featuredData)) {
+                      if (featuredData.properties) {
+                        featuredData = featuredData.properties
+                      } else if (featuredData.data) {
+                        featuredData = featuredData.data
+                      }
+                    }
+
+                    // Apply local storage overrides for featured status
+                    const featuredPropertiesStorage = localStorage.getItem("admin_featured_properties")
+                    let featuredOverrides = {}
+
+                    if (featuredPropertiesStorage) {
+                      try {
+                        featuredOverrides = JSON.parse(featuredPropertiesStorage)
+                      } catch (e) {
+                        console.error("Error parsing featured properties from localStorage:", e)
+                      }
+                    }
+
+                    // Filter properties that are marked as featured either in the API or in localStorage
+                    const filteredFeaturedData = Array.isArray(featuredData)
+                      ? featuredData.filter((property) => {
+                          const propertyId = property._id || property.id
+                          // Check if we have an override in localStorage
+                          if (featuredOverrides[propertyId] !== undefined) {
+                            return featuredOverrides[propertyId]
+                          }
+                          // Otherwise use the property's featured flag
+                          return property.featured === true
+                        })
+                      : []
+
+                    console.log("Refreshed featured properties:", filteredFeaturedData)
+                    setFeaturedListings(filteredFeaturedData)
                     setIsLoading(false)
                   })
                   .catch((error) => {
@@ -398,25 +515,25 @@ const HomePage = () => {
                         <Bath size={16} />
                         <span>{listing.bathrooms} baths</span>
                       </div>
-                      {listing.amenities.includes("parking") && (
+                      {listing.amenities && listing.amenities.includes("parking") && (
                         <div className="amenity">
                           <Car size={16} />
                           <span>Parking</span>
                         </div>
                       )}
-                      {listing.amenities.includes("wifi") && (
+                      {listing.amenities && listing.amenities.includes("wifi") && (
                         <div className="amenity">
                           <Wifi size={16} />
                           <span>WiFi</span>
                         </div>
                       )}
-                      {listing.amenities.includes("water") && (
+                      {listing.amenities && listing.amenities.includes("water") && (
                         <div className="amenity">
                           <Droplet size={16} />
                           <span>Water</span>
                         </div>
                       )}
-                      {listing.amenities.includes("ac") && (
+                      {listing.amenities && listing.amenities.includes("ac") && (
                         <div className="amenity">
                           <Snowflake size={16} />
                           <span>AC</span>
@@ -437,7 +554,7 @@ const HomePage = () => {
                       </button>
                       <button
                         className="btn btn-chat"
-                        onClick={() => handleChatWithLandlord(listing.owner.name || "Landlord")}
+                        onClick={() => handleChatWithLandlord(listing.owner?.name || "Landlord")}
                       >
                         <MessageCircle size={16} /> Chat with landlord
                       </button>
@@ -461,7 +578,10 @@ const HomePage = () => {
               ))}
             </div>
           ) : (
-            <p>No featured rooms available at the moment.</p>
+            <div className="no-listings-message">
+              <p>No featured rooms available at the moment.</p>
+              <p className="no-listings-subtext">Check back later or browse all available rooms.</p>
+            </div>
           )}
           <div className="view-more-container">
             <Link to="/rooms" className="btn btn-view-all">
