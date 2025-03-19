@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
-import { Heart, MessageCircle, MapPin, Badge } from "lucide-react"
+import { MessageCircle, MapPin, Badge } from "lucide-react"
 import { getPropertyById, toggleFavorite as toggleFavoriteApi, getFavorites } from "../services/api"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import { isAuthenticated } from "../services/auth"
@@ -213,6 +213,20 @@ const RoomDetail = () => {
                   <li>No amenities listed</li>
                 )}
               </ul>
+
+              {/* Custom Amenities */}
+              {room.customAmenities && room.customAmenities.length > 0 && (
+                <div className="custom-amenities">
+                  <h3>Custom Amenities</h3>
+                  <ul className="custom-amenities-list">
+                    {room.customAmenities.map((amenity, index) => (
+                      <li key={`custom-${index}`} className="custom-amenity-item">
+                        {amenity}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             <p className="room-description">{room.description}</p>
             <div className="room-details">
@@ -232,13 +246,6 @@ const RoomDetail = () => {
               </button>
               <button className="btn btn-outline" onClick={handleChatWithLandlord}>
                 <MessageCircle size={20} /> Chat with Landlord
-              </button>
-              <button
-                className={`btn btn-icon ${isFavorite ? "btn-favorite-active" : "btn-favorite"}`}
-                onClick={handleToggleFavorite}
-                aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-              >
-                <Heart size={20} fill={isFavorite ? "currentColor" : "none"} />
               </button>
             </div>
           </div>

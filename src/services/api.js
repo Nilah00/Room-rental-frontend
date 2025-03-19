@@ -1,6 +1,6 @@
 import axios from "axios"
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
 console.log("API URL:", API_URL)
 
@@ -125,12 +125,12 @@ export const getProperties = async () => {
       },
     })
     console.log("Properties response:", response)
-    
+
     // Check if the response data contains properties and valid coordinates
     if (response.data && response.data.length > 0) {
       response.data.forEach((property) => {
-        console.log(`Property: ${property.name}, Coordinates: ${property.latitude}, ${property.longitude}`);
-      });
+        console.log(`Property: ${property.name}, Coordinates: ${property.latitude}, ${property.longitude}`)
+      })
     }
 
     return response
@@ -147,7 +147,6 @@ export const getProperties = async () => {
     }
   }
 }
-
 
 export const getPropertyById = async (id) => {
   console.log(`Fetching property with id: ${id}`)
@@ -183,6 +182,29 @@ export const addProperty = async (propertyData) => {
     // Log the FormData contents for debugging
     for (const [key, value] of propertyData.entries()) {
       console.log(`${key}:`, value)
+    }
+
+    // Ensure amenities and customAmenities are properly formatted as JSON strings
+    if (propertyData.has("amenities")) {
+      try {
+        // Check if it's already a JSON string
+        JSON.parse(propertyData.get("amenities"))
+      } catch (e) {
+        // If not, convert it to a JSON string
+        const amenities = propertyData.get("amenities")
+        propertyData.set("amenities", JSON.stringify(amenities))
+      }
+    }
+
+    if (propertyData.has("customAmenities")) {
+      try {
+        // Check if it's already a JSON string
+        JSON.parse(propertyData.get("customAmenities"))
+      } catch (e) {
+        // If not, convert it to a JSON string
+        const customAmenities = propertyData.get("customAmenities")
+        propertyData.set("customAmenities", JSON.stringify(customAmenities))
+      }
     }
 
     const response = await api.post("/properties", propertyData, {
@@ -227,6 +249,29 @@ export const updateProperty = async (id, propertyData) => {
     const token = localStorage.getItem("token")
     if (!token) {
       throw new Error("Authentication required")
+    }
+
+    // Ensure amenities and customAmenities are properly formatted as JSON strings
+    if (propertyData.has("amenities")) {
+      try {
+        // Check if it's already a JSON string
+        JSON.parse(propertyData.get("amenities"))
+      } catch (e) {
+        // If not, convert it to a JSON string
+        const amenities = propertyData.get("amenities")
+        propertyData.set("amenities", JSON.stringify(amenities))
+      }
+    }
+
+    if (propertyData.has("customAmenities")) {
+      try {
+        // Check if it's already a JSON string
+        JSON.parse(propertyData.get("customAmenities"))
+      } catch (e) {
+        // If not, convert it to a JSON string
+        const customAmenities = propertyData.get("customAmenities")
+        propertyData.set("customAmenities", JSON.stringify(customAmenities))
+      }
     }
 
     // Make a direct axios call to ensure proper headers

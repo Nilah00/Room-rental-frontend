@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Link, useNavigate, useLocation } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   Star,
   Bell,
@@ -15,8 +15,6 @@ import {
   Lock,
   BarChart2,
   PenTool,
-  Bed,
-  Bath,
   Car,
   Wifi,
   Droplet,
@@ -27,8 +25,9 @@ import "./Home.css"
 import ChatBox from "./ChatBox"
 import RentalMap from "./RentalMap"
 import { getImageUrl, handleImageError } from "./imageUtils"
-import { getFeaturedProperties, getUserProperties, deleteProperty, getFavorites } from "../services/api"
-import { isAuthenticated, logout } from "../services/auth"
+import { getFeaturedProperties, getFavorites } from "../services/api"
+// Fix the import to only include functions that exist
+import { isAuthenticated, logout } from "../services/auth" // Import validateUserRole
 
 const HomePage = () => {
   const [searchParams, setSearchParams] = useState({
@@ -43,13 +42,30 @@ const HomePage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [username, setUsername] = useState("")
-  const [userProperties, setUserProperties] = useState([])
   const [featuredListings, setFeaturedListings] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [mapKey, setMapKey] = useState(Date.now()) // Add a key to force map re-render
 
   const navigate = useNavigate()
-  const location = useLocation()
+
+  // Function to get featured property IDs from localStorage
+  const getFeaturedIdsFromLocalStorage = () => {
+    try {
+      const featuredPropertiesJson = localStorage.getItem("admin_featured_properties") || "{}"
+      const featuredProperties = JSON.parse(featuredPropertiesJson)
+
+      // Filter only properties that are actually featured (value is true)
+      const featuredPropertyIds = Object.entries(featuredProperties)
+        .filter(([_, isFeatured]) => isFeatured === true)
+        .map(([id, _]) => id)
+
+      return featuredPropertyIds
+    } catch (error) {
+      console.error("Error getting featured IDs from localStorage:", error)
+      return []
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,23 +73,24 @@ const HomePage = () => {
       setError(null)
 
       try {
-        const authStatus = isAuthenticated()
+        // Check if user is authenticated (as a regular user, not admin)
+        const authStatus = isAuthenticated(false)
         setIsLoggedIn(authStatus)
 
         if (authStatus) {
+          // Get the user data from the correct storage location
+          //  want the regular user data, not admin
           const user = JSON.parse(localStorage.getItem("user"))
-          setUsername(user.name)
+
+          if (user) {
+            setUsername(user.name)
+          }
 
           try {
-            const [userPropsResponse, favoritesResponse] = await Promise.all([getUserProperties(), getFavorites()])
-            setUserProperties(userPropsResponse.data)
-            // Handle empty favorites response
-            setFavorites(favoritesResponse.data || [])
+            const favoritesResponse = await getFavorites()
+            setFavorites(favoritesResponse.data)
           } catch (userDataError) {
             console.error("Error fetching user data:", userDataError)
-            // Set empty arrays on error
-            setUserProperties([])
-            setFavorites([])
           }
         } else {
           setIsLoggedIn(false)
@@ -85,55 +102,38 @@ const HomePage = () => {
         }
 
         try {
-          // Force a fresh request by adding a timestamp to avoid caching
-          const featuredResponse = await getFeaturedProperties(`?_=${Date.now()}`)
+          // DIRECT FIX: Get featured IDs from localStorage first
+          const featuredIds = getFeaturedIdsFromLocalStorage()
 
-          // Log the response to help with debugging
-          console.log("Featured properties raw response:", featuredResponse)
+          if (featuredIds.length === 0) {
+            // If no featured IDs in localStorage, try the API
+            const featuredResponse = await getFeaturedProperties()
+            const trulyFeatured = featuredResponse.data.filter((property) => property.featured === true)
+            setFeaturedListings(trulyFeatured)
+          } else {
+            // If we have featured IDs in localStorage, fetch all properties and filter
+            const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
+            const response = await fetch(`${API_URL}/properties?_=${Date.now()}`)
+            const data = await response.json()
 
-          // Get the data from the response
-          let featuredData = featuredResponse.data
-
-          // Ensure we have an array of properties
-          if (!Array.isArray(featuredData)) {
-            if (featuredData.properties) {
-              featuredData = featuredData.properties
-            } else if (featuredData.data) {
-              featuredData = featuredData.data
+            // Extract the properties array
+            let allProperties = data
+            if (!Array.isArray(allProperties)) {
+              if (allProperties.properties) {
+                allProperties = allProperties.properties
+              } else if (allProperties.data) {
+                allProperties = allProperties.data
+              }
             }
-          }
 
-          // Apply local storage overrides for featured status
-          const featuredPropertiesStorage = localStorage.getItem("admin_featured_properties")
-          let featuredOverrides = {}
+            // Filter for properties that match our featured IDs
+            const featuredProperties = allProperties.filter((property) => {
+              const propertyId = property._id || property.id
+              return featuredIds.includes(propertyId)
+            })
 
-          if (featuredPropertiesStorage) {
-            try {
-              featuredOverrides = JSON.parse(featuredPropertiesStorage)
-              console.log("Featured overrides from localStorage:", featuredOverrides)
-            } catch (e) {
-              console.error("Error parsing featured properties from localStorage:", e)
-            }
-          }
-
-          // Filter properties that are marked as featured either in the API or in localStorage
-          const filteredFeaturedData = Array.isArray(featuredData)
-            ? featuredData.filter((property) => {
-                const propertyId = property._id || property.id
-                // Check if we have an override in localStorage
-                if (featuredOverrides[propertyId] !== undefined) {
-                  return featuredOverrides[propertyId]
-                }
-                // Otherwise use the property's featured flag
-                return property.featured === true
-              })
-            : []
-
-          console.log("Filtered featured properties:", filteredFeaturedData)
-          setFeaturedListings(filteredFeaturedData)
-
-          if (filteredFeaturedData.length === 0) {
-            console.log("No featured properties found")
+            // Update the state with the featured properties
+            setFeaturedListings(featuredProperties)
           }
         } catch (featuredError) {
           console.error("Error fetching featured properties:", featuredError)
@@ -148,68 +148,16 @@ const HomePage = () => {
     }
 
     fetchData()
-  }, [location.pathname]) // Add location.pathname as a dependency
 
-  const loadFavorites = () => {
-    try {
-      const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
-      setFavorites(storedFavorites)
-    } catch (error) {
-      console.error("Error loading favorites from localStorage:", error)
-      setFavorites([])
-    }
-  }
+    // Force map re-render when component mounts
+    setMapKey(Date.now())
+  }, [])
 
   useEffect(() => {
     // Load favorites from localStorage when the component mounts
-    loadFavorites()
-
-    // Add event listener for property status updates
-    const handlePropertyUpdate = (event) => {
-      const { updatedProperty } = event.detail
-      setFeaturedListings((prev) =>
-        prev.map((listing) => (listing._id === updatedProperty._id ? updatedProperty : listing)),
-      )
-    }
-
-    // Add event listener for featured status updates
-    const handleFeaturedUpdate = (event) => {
-      const { propertyId, featured } = event.detail
-      console.log(`Property ${propertyId} featured status changed to ${featured}`)
-
-      // If a property is marked as featured, we need to fetch it and add it to the featured listings
-      if (featured) {
-        // Check if the property is already in the featured listings
-        const propertyExists = featuredListings.some((listing) => (listing._id || listing.id) === propertyId)
-
-        if (!propertyExists) {
-          // Fetch the property details and add it to the featured listings
-          const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
-          fetch(`${API_URL}/properties/${propertyId}`)
-            .then((response) => response.json())
-            .then((property) => {
-              console.log("Adding property to featured listings:", property)
-              setFeaturedListings((prev) => [...prev, { ...property, featured: true }])
-            })
-            .catch((error) => {
-              console.error("Error fetching property details:", error)
-            })
-        }
-      } else {
-        // If a property is unmarked as featured, remove it from the featured listings
-        setFeaturedListings((prev) => prev.filter((listing) => (listing._id || listing.id) !== propertyId))
-      }
-    }
-
-    window.addEventListener("propertyStatusUpdated", handlePropertyUpdate)
-    window.addEventListener("propertyFeaturedUpdated", handleFeaturedUpdate)
-
-    // Cleanup
-    return () => {
-      window.removeEventListener("propertyStatusUpdated", handlePropertyUpdate)
-      window.removeEventListener("propertyFeaturedUpdated", handleFeaturedUpdate)
-    }
-  }, [featuredListings])
+    const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
+    setFavorites(storedFavorites)
+  }, [])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -260,27 +208,67 @@ const HomePage = () => {
   }
 
   const handleLogout = () => {
-    logout()
+    // Store the current properties before logout
+    const currentProperties = localStorage.getItem("properties")
+
+    // Perform logout
+    logout(false)
     setIsLoggedIn(false)
     setUsername("")
-    setUserProperties([])
     setFavorites([])
+
+    // Restore properties data for the map
+    if (currentProperties) {
+      localStorage.setItem("properties", currentProperties)
+    }
+
+    // Force map re-render by updating the key
+    setMapKey(Date.now())
+
     navigate("/")
   }
 
-  const handleEditProperty = (propertyId) => {
-    navigate(`/edit-property/${propertyId}`)
-  }
+  // Function to refresh featured properties
+  const refreshFeaturedProperties = async () => {
+    setIsLoading(true)
+    try {
+      // Get featured IDs from localStorage
+      const featuredIds = getFeaturedIdsFromLocalStorage()
 
-  const handleDeleteProperty = async (propertyId) => {
-    if (window.confirm("Are you sure you want to delete this property?")) {
-      try {
-        await deleteProperty(propertyId)
-        setUserProperties((prev) => prev.filter((prop) => prop._id !== propertyId))
-      } catch (error) {
-        console.error("Error deleting property:", error)
-        alert("Failed to delete property. Please try again.")
+      if (featuredIds.length === 0) {
+        // If no featured IDs in localStorage, try the API
+        const featuredResponse = await getFeaturedProperties()
+        const trulyFeatured = featuredResponse.data.filter((property) => property.featured === true)
+        setFeaturedListings(trulyFeatured)
+      } else {
+        // If we have featured IDs in localStorage, fetch all properties and filter
+        const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
+        const response = await fetch(`${API_URL}/properties?_=${Date.now()}`)
+        const data = await response.json()
+
+        // Extract the properties array
+        let allProperties = data
+        if (!Array.isArray(allProperties)) {
+          if (allProperties.properties) {
+            allProperties = allProperties.properties
+          } else if (allProperties.data) {
+            allProperties = allProperties.data
+          }
+        }
+
+        // Filter for properties that match our featured IDs
+        const featuredProperties = allProperties.filter((property) => {
+          const propertyId = property._id || property.id
+          return featuredIds.includes(propertyId)
+        })
+
+        setFeaturedListings(featuredProperties)
       }
+    } catch (error) {
+      console.error("Error refreshing featured properties:", error)
+      setError("Failed to refresh featured properties")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -410,7 +398,9 @@ const HomePage = () => {
       <section className="rental-map">
         <div className="container">
           <h2>Explore Available Rentals</h2>
-          <RentalMap />
+
+          <RentalMap key={mapKey} />
+          <div className="rental-map-info"></div>
         </div>
       </section>
 
@@ -418,71 +408,18 @@ const HomePage = () => {
         <div className="container">
           <div className="section-header">
             <h2>Featured Rooms</h2>
-            <button
-              onClick={() => {
-                setIsLoading(true)
-                getFeaturedProperties(`?_=${Date.now()}`)
-                  .then((response) => {
-                    // Get the data from the response
-                    let featuredData = response.data
-
-                    // Ensure we have an array of properties
-                    if (!Array.isArray(featuredData)) {
-                      if (featuredData.properties) {
-                        featuredData = featuredData.properties
-                      } else if (featuredData.data) {
-                        featuredData = featuredData.data
-                      }
-                    }
-
-                    // Apply local storage overrides for featured status
-                    const featuredPropertiesStorage = localStorage.getItem("admin_featured_properties")
-                    let featuredOverrides = {}
-
-                    if (featuredPropertiesStorage) {
-                      try {
-                        featuredOverrides = JSON.parse(featuredPropertiesStorage)
-                      } catch (e) {
-                        console.error("Error parsing featured properties from localStorage:", e)
-                      }
-                    }
-
-                    // Filter properties that are marked as featured either in the API or in localStorage
-                    const filteredFeaturedData = Array.isArray(featuredData)
-                      ? featuredData.filter((property) => {
-                          const propertyId = property._id || property.id
-                          // Check if we have an override in localStorage
-                          if (featuredOverrides[propertyId] !== undefined) {
-                            return featuredOverrides[propertyId]
-                          }
-                          // Otherwise use the property's featured flag
-                          return property.featured === true
-                        })
-                      : []
-
-                    console.log("Refreshed featured properties:", filteredFeaturedData)
-                    setFeaturedListings(filteredFeaturedData)
-                    setIsLoading(false)
-                  })
-                  .catch((error) => {
-                    console.error("Error refreshing listings:", error)
-                    setError("Failed to refresh listings")
-                    setIsLoading(false)
-                  })
-              }}
-              className="btn btn-refresh"
-              disabled={isLoading}
-            >
+            <button onClick={refreshFeaturedProperties} className="btn btn-refresh" disabled={isLoading}>
               {isLoading ? "Refreshing..." : "Refresh Listings"}
             </button>
           </div>
+
           {featuredListings.length > 0 ? (
             <div className="listings-grid">
               {featuredListings.map((listing) => (
-                <div key={listing._id} className="listing-card">
+                <div key={listing._id || listing.id} className="listing-card">
                   <div className="listing-image-container">
                     <img
-                      src={getImageUrl(listing.images[0]) || "/placeholder.svg"}
+                      src={getImageUrl(listing.images && listing.images[0]) || "/placeholder.svg"}
                       alt={listing.title}
                       className="listing-image"
                       width={250}
@@ -490,41 +427,46 @@ const HomePage = () => {
                       onError={handleImageError}
                     />
                     <div className="listing-overlay">
-                      <Link to={`/room/${listing._id}`} className="btn btn-view">
+                      <Link to={`/room/${listing._id || listing.id}`} className="btn btn-view">
                         <Eye size={20} /> View
                       </Link>
                     </div>
                   </div>
                   <div className="listing-details">
                     <h3>{listing.title}</h3>
-                    <div
-                      className={`availability-badge ${listing.status ? listing.status.toLowerCase().replace(/\s+/g, "-") : "available"}`}
+                    <span
+                      className={`availability-badge ${
+                        !listing.status || listing.status === "Available"
+                          ? "available"
+                          : listing.status === "Booked"
+                            ? "booked"
+                            : listing.status === "Not Available"
+                              ? "not-available"
+                              : listing.status === "Maintenance"
+                                ? "maintenance"
+                                : listing.status === "Reserved"
+                                  ? "reserved"
+                                  : "not-available"
+                      }`}
                     >
                       <Badge size={14} />
                       <span>{listing.status || "Available"}</span>
-                    </div>
+                    </span>
                     <p className="listing-location">{listing.location}</p>
-                    <p className="listing-price">Rs {listing.price.toLocaleString()}/month</p>
+                    <p className="listing-price">Rs {listing.price ? listing.price.toLocaleString() : "0"}/month</p>
                     <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
                     <div className="amenities">
-                      <div className="amenity">
-                        <Bed size={16} />
-                        <span>{listing.bedrooms} beds</span>
-                      </div>
-                      <div className="amenity">
-                        <Bath size={16} />
-                        <span>{listing.bathrooms} baths</span>
-                      </div>
-                      {listing.amenities && listing.amenities.includes("parking") && (
-                        <div className="amenity">
-                          <Car size={16} />
-                          <span>Parking</span>
-                        </div>
-                      )}
+                      {/* Predefined amenities with icons */}
                       {listing.amenities && listing.amenities.includes("wifi") && (
                         <div className="amenity">
                           <Wifi size={16} />
                           <span>WiFi</span>
+                        </div>
+                      )}
+                      {listing.amenities && listing.amenities.includes("parking") && (
+                        <div className="amenity">
+                          <Car size={16} />
+                          <span>Parking</span>
                         </div>
                       )}
                       {listing.amenities && listing.amenities.includes("water") && (
@@ -539,6 +481,14 @@ const HomePage = () => {
                           <span>AC</span>
                         </div>
                       )}
+
+                      {/* Custom amenities */}
+                      {listing.customAmenities &&
+                        listing.customAmenities.map((amenity, index) => (
+                          <div className="amenity custom-amenity" key={`custom-${index}`}>
+                            <span>{amenity}</span>
+                          </div>
+                        ))}
                     </div>
                     <div className="listing-actions">
                       <button

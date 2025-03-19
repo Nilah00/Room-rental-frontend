@@ -34,7 +34,6 @@
   padding: 2rem 1rem;
 }
 
-
 .add-property-form {
   max-width: 800px;
   margin: 0 auto;
@@ -81,19 +80,134 @@
   resize: vertical;
 }
 
+/* Checkbox styling */
+.form-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+/* Furnished checkbox specific styling */
+.form-group label[for="furnished"] {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.form-group label[for="furnished"] input[type="checkbox"] {
+  margin-left: 8px;
+}
+
+/* Amenities group styling */
 .amenities-group {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 1rem;
 }
 
-.amenity-item {
+.amenities-group label {
   display: flex;
   align-items: center;
+  font-weight: normal;
+  margin-bottom: 0;
+  cursor: pointer;
 }
 
-.amenity-item input[type="checkbox"] {
-  margin-right: 0.5rem;
+.amenities-group input[type="checkbox"] {
+  margin-right: 8px;
+  accent-color: var(--primary-color);
+}
+
+/* Add focus styles for checkbox */
+input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+  border-radius: 3px;
+}
+
+/* Add these styles to your existing AddProperty.css file */
+
+.custom-amenities-input {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.custom-amenity-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid var(--light-gray);
+  border-radius: 0.25rem;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.custom-amenity-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.add-custom-amenity-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.75rem 1rem;
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: none;
+  border-radius: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.add-custom-amenity-btn:hover {
+  background-color: var(--primary-dark);
+}
+
+.add-custom-amenity-btn:disabled {
+  background-color: #a5a5a5;
+  cursor: not-allowed;
+}
+
+.custom-amenities-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.custom-amenity-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background-color: #f3f4f6;
+  border-radius: 20px;
+  font-size: 0.875rem;
+}
+
+.remove-custom-amenity-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.remove-custom-amenity-btn:hover {
+  background-color: #e5e7eb;
+  color: #ef4444;
 }
 
 .btn-primary {
@@ -232,8 +346,6 @@
   }
 }
 
-
-
 @media (max-width: 768px) {
   .add-property-form {
     padding: 1.5rem;
@@ -243,3 +355,157 @@
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
 }
+
+/* Add these styles to your AddProperty.css file */
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  animation: modal-appear 0.3s ease-out;
+}
+
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header.success {
+  background-color: #ecfdf5;
+  color: #065f46;
+}
+
+.modal-header.error {
+  background-color: #fef2f2;
+  color: #991b1b;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.close-button:hover {
+  opacity: 1;
+}
+
+.modal-body {
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.modal-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.modal-icon svg {
+  color: #4f46e5;
+}
+
+.modal-message {
+  flex: 1;
+}
+
+.modal-message p {
+  margin: 0 0 8px 0;
+  color: #4b5563;
+}
+
+.modal-message p:last-child {
+  margin-bottom: 0;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.success-button {
+  background-color: #4f46e5;
+  color: white;
+}
+
+.success-button:hover {
+  background-color: #4338ca;
+}
+
+.error-button {
+  background-color: #ef4444;
+  color: white;
+}
+
+.error-button:hover {
+  background-color: #dc2626;
+}
+
+.modal-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+

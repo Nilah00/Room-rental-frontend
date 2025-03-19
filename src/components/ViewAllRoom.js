@@ -230,30 +230,38 @@ function ViewAllRooms() {
                       {room.bathrooms} {room.bathrooms === 1 ? "bath" : "baths"}
                     </span>
                   </div>
-                  {room.amenities.includes("parking") && (
+                  {room.amenities && room.amenities.includes("parking") && (
                     <div className="amenity">
                       <Car size={16} />
                       <span>Parking</span>
                     </div>
                   )}
-                  {room.amenities.includes("wifi") && (
+                  {room.amenities && room.amenities.includes("wifi") && (
                     <div className="amenity">
                       <Wifi size={16} />
                       <span>WiFi</span>
                     </div>
                   )}
-                  {room.amenities.includes("water") && (
+                  {room.amenities && room.amenities.includes("water") && (
                     <div className="amenity">
                       <Droplet size={16} />
                       <span>Water</span>
                     </div>
                   )}
-                  {room.amenities.includes("ac") && (
+                  {room.amenities && room.amenities.includes("ac") && (
                     <div className="amenity">
                       <Snowflake size={16} />
                       <span>AC</span>
                     </div>
                   )}
+
+                  {/* Custom amenities */}
+                  {room.customAmenities &&
+                    room.customAmenities.map((amenity, index) => (
+                      <div key={`custom-${index}`} className="amenity custom-amenity">
+                        <span>{amenity}</span>
+                      </div>
+                    ))}
                 </div>
                 <div className="listing-actions">
                   <button

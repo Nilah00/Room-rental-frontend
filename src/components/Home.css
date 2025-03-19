@@ -710,6 +710,498 @@ body {
   padding-top: 2rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
+/* Existing CSS styles... */
+
+/* Update the listings-grid to ensure it's completely flexible */
+.listings-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+  grid-auto-rows: auto !important;
+  grid-auto-flow: row !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  /* Explicit removal of any limiting properties */
+}
+
+/* Overrides to ensure items are visible */
+.listings-grid > * {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Add explicit styles for each nth-child to ensure they're all visible */
+.listings-grid > :nth-child(1),
+.listings-grid > :nth-child(2),
+.listings-grid > :nth-child(3),
+.listings-grid > :nth-child(4),
+.listings-grid > :nth-child(5),
+.listings-grid > :nth-child(6) {
+  display: block !important;
+}
+/* Existing CSS styles... */
+
+/* Update the listings-grid to ensure it's completely flexible */
+.listings-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+  grid-auto-rows: auto !important;
+  grid-auto-flow: row !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  /* Explicit removal of any limiting properties */
+}
+
+/* Ensure all items in the grid are visible */
+.listings-grid > * {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Explicitly target each potential item */
+.listings-grid > :nth-child(1),
+.listings-grid > :nth-child(2),
+.listings-grid > :nth-child(3),
+.listings-grid > :nth-child(4),
+.listings-grid > :nth-child(5),
+.listings-grid > :nth-child(6) {
+  display: block !important;
+}
+
+/* Add explicit styles for each nth-child to ensure they're all visible */
+.listings-grid > :nth-child(1),
+.listings-grid > :nth-child(2),
+.listings-grid > :nth-child(3),
+.listings-grid > :nth-child(4),
+.listings-grid > :nth-child(5),
+.listings-grid > :nth-child(6) {
+  display: block !important;
+}
+
+/* Responsive adjustments for the listings grid */
+@media (min-width: 640px) {
+  .listings-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .listings-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Add a new breakpoint for larger screens to show 4 columns */
+@media (min-width: 1440px) {
+  .listings-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Section header with refresh button */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.btn-refresh {
+  padding: 0.5rem 1rem;
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-refresh:hover {
+  background-color: #4338ca;
+}
+
+.btn-refresh:disabled {
+  background-color: #a5a5a5;
+  cursor: not-allowed;
+}
+
+/* Ensure the listing cards maintain a consistent height */
+.listing-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.listing-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.listing-image-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.listing-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Add these styles for the availability badge */
+.availability-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.availability-badge.available {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.availability-badge.booked {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.availability-badge.not-available {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.availability-badge.maintenance {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.availability-badge.reserved {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+/* Make the listing details section more polished */
+.listing-details {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.listing-details h3 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  color: #1f2937;
+}
+
+.listing-location {
+  color: #6b7280;
+  margin: 0 0 8px 0;
+}
+
+.listing-price {
+  font-weight: 700;
+  font-size: 18px;
+  color: #4f46e5;
+  margin: 0 0 8px 0;
+}
+
+.furnished-status {
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+/* Existing CSS styles... */
+
+/* Update the listings-grid to ensure it's completely flexible */
+.listings-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+  grid-auto-rows: auto !important;
+  grid-auto-flow: row !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  /* Explicit removal of any limiting properties */
+}
+
+/* Ensure all items in the grid are visible */
+.listings-grid > * {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Explicitly target each potential item */
+.listings-grid > :nth-child(1),
+.listings-grid > :nth-child(2),
+.listings-grid > :nth-child(3),
+.listings-grid > :nth-child(4),
+.listings-grid > :nth-child(5),
+.listings-grid > :nth-child(6) {
+  display: block !important;
+}
+
+/* Add explicit styles for each nth-child to ensure they're all visible */
+.listings-grid > :nth-child(1),
+.listings-grid > :nth-child(2),
+.listings-grid > :nth-child(3),
+.listings-grid > :nth-child(4),
+.listings-grid > :nth-child(5),
+.listings-grid > :nth-child(6) {
+  display: block !important;
+}
+
+/* Responsive adjustments for the listings grid */
+@media (min-width: 640px) {
+  .listings-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .listings-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Add a new breakpoint for larger screens to show 4 columns */
+@media (min-width: 1440px) {
+  .listings-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Section header with refresh button */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.btn-refresh {
+  padding: 0.5rem 1rem;
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-refresh:hover {
+  background-color: #4338ca;
+}
+
+.btn-refresh:disabled {
+  background-color: #a5a5a5;
+  cursor: not-allowed;
+}
+
+/* Ensure the listing cards maintain a consistent height */
+.listing-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.listing-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.listing-image-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.listing-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Add these styles for the availability badge */
+.availability-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.availability-badge.available {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.availability-badge.booked {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.availability-badge.not-available {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.availability-badge.maintenance {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.availability-badge.reserved {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+/* Make the listing details section more polished */
+.listing-details {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.listing-details h3 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  color: #1f2937;
+}
+
+.listing-location {
+  color: #6b7280;
+  margin: 0 0 8px 0;
+}
+
+.listing-price {
+  font-weight: 700;
+  font-size: 18px;
+  color: #4f46e5;
+  margin: 0 0 8px 0;
+}
+
+.furnished-status {
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.amenity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.custom-amenity {
+  background-color: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+
+
+/* Responsive adjustments for the listings grid */
+@media (min-width: 640px) {
+  .listings-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .listings-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Add a new breakpoint for larger screens to show 4 columns */
+@media (min-width: 1440px) {
+  .listings-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Ensure the listing cards maintain a consistent height */
+.listing-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.listing-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.listing-image-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.listing-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Rest of your existing CSS... */
+
+
 
 /* Responsive Design */
 @media (max-width: 1024px) {

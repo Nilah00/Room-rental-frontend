@@ -205,6 +205,36 @@
   color: #ef4444;
 }
 
+/* Add these styles to your existing CSS file */
+.custom-amenity {
+  background-color: var(--off-white, #f9fafb);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-right: 4px;
+  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.amenity {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+
+
 /* Add these styles for the availability badge */
 .availability-badge {
   display: inline-flex;

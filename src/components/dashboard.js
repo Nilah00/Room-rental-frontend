@@ -2,10 +2,22 @@
 
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Eye, ArrowUp, ArrowDown, Film, RefreshCw, Check, AlertCircle } from "lucide-react"
+import { Eye, ArrowUp, ArrowDown, Film, RefreshCw, Check, AlertCircle, Trash2 } from "lucide-react"
 import { isAdminAuthenticated, adminLogout, getCurrentAdmin } from "../services/auth"
-import { getProperties, toggleFeaturedStatus, updatePropertyStatus } from "../services/adminApi"
+import {
+  getProperties,
+  toggleFeaturedStatus,
+  getAllFeaturedPropertiesFromLocalStorage,
+  rebuildFeaturedProperties,
+  purgeAllFeaturedProperties,
+} from "../services/adminApi"
 import "./Dashboard.css"
+
+// Add this at the top of the file, right after the imports
+/* eslint no-restricted-globals: 0 */
+/* eslint no-unused-vars: 0 */
+
+/* eslint no-restricted-globals: 0 */
 
 // Helper function to format currency in NPR
 const formatNPR = (amount) => {
@@ -15,6 +27,12 @@ const formatNPR = (amount) => {
     maximumFractionDigits: 0,
   }).format(amount)
 }
+
+// Maximum number of featured properties allowed
+const MAX_FEATURED_PROPERTIES = 6 // Allows exactly 6 properties
+
+// Key for storing featured properties in local storage
+const FEATURED_PROPERTIES_STORAGE_KEY = "admin_featured_properties"
 
 // Helper function to get image URL
 const getImageUrl = (path) => {
@@ -106,7 +124,7 @@ function PropertyDetailModal({ property, onClose }) {
                         >
                           <img
                             src={getImageUrl(image) || "/placeholder.svg"}
-                            alt={`${property.title} - image ${index + 1}`}
+                            alt={`${property.title} - ${index + 1}`}
                             onError={(e) => {
                               e.target.onerror = null
                               e.target.src = "/placeholder.svg?height=80&width=120"
@@ -119,7 +137,7 @@ function PropertyDetailModal({ property, onClose }) {
                 </div>
               ) : (
                 <div className="main-image">
-                  <img src="/placeholder.svg?height=300&width=500" alt="No image available" />
+                  <img src="/placeholder.svg?height=300&width=500" alt="Not available" />
                 </div>
               )}
             </div>
@@ -263,6 +281,7 @@ function Dashboard() {
   const [stats, setStats] = useState({
     totalProperties: 0,
     totalRevenue: 0,
+    featuredProperties: 0,
   })
   const [isLoadingProperties, setIsLoadingProperties] = useState(true)
   const [error, setError] = useState(null)
@@ -330,17 +349,28 @@ function Dashboard() {
 
       console.log("Processed properties:", processedProperties)
 
-      // Check for videos in properties
-      processedProperties.forEach((property) => {
-        if (property.video) {
-          console.log(`Property ${property._id || property.id} has video:`, property.video)
-        }
-        if (property.videos && property.videos.length > 0) {
-          console.log(`Property ${property._id || property.id} has ${property.videos.length} videos:`, property.videos)
+      // Get featured property IDs from localStorage
+      const featuredPropertyIds = getAllFeaturedPropertiesFromLocalStorage()
+      console.log(`Featured properties in localStorage: ${featuredPropertyIds.length}`)
+
+      // Map the properties and set featured status based on localStorage
+      processedProperties = processedProperties.map((property) => {
+        const propertyId = property._id || property.id
+        return {
+          ...property,
+          featured: featuredPropertyIds.includes(propertyId),
         }
       })
 
+      // Set the properties with correct featured status
       setProperties(processedProperties)
+
+      // Count featured properties by checking which ones are actually in the localStorage list
+      const featuredCount = processedProperties.filter((property) => {
+        const propertyId = property._id || property.id
+        return featuredPropertyIds.includes(propertyId)
+      }).length
+      console.log(`Actual featured properties count: ${featuredCount}`)
 
       // Calculate stats
       const totalRevenue = processedProperties.reduce((sum, property) => {
@@ -350,6 +380,7 @@ function Dashboard() {
       setStats({
         totalProperties: processedProperties.length,
         totalRevenue,
+        featuredProperties: featuredCount, // Use the accurate count
       })
 
       setLastRefreshed(new Date())
@@ -360,6 +391,30 @@ function Dashboard() {
       setError("Failed to load properties. Please try again.")
     }
   }
+
+  // Function to update the featured count in real-time
+  // This function is kept for future use but commented out to avoid ESLint warnings
+  /*
+  const updateFeaturedCount = () => {
+    // Get the actual featured IDs from localStorage
+    const featuredIds = getAllFeaturedPropertiesFromLocalStorage()
+
+    // Count how many of these IDs actually exist in the properties list
+    const actualFeaturedCount = properties.filter((property) => {
+      const propertyId = property._id || property.id
+      return featuredIds.includes(propertyId)
+    }).length
+
+    // Update the stats with the accurate count
+    setStats((prev) => ({
+      ...prev,
+      featuredProperties: featuredIds.length, // Use the raw count from localStorage
+    }))
+
+    console.log(`Updated featured count: ${featuredIds.length}`)
+    return featuredIds.length
+  }
+  */
 
   const handleLogout = () => {
     // Use the adminLogout function
@@ -413,7 +468,8 @@ function Dashboard() {
 
   const sortedProperties = getSortedProperties()
 
-  // Handle status change
+  // Handle status change function is kept for future use but commented out to avoid ESLint warnings
+  /*
   const handleStatusChange = async (propertyId, newStatus) => {
     try {
       // Find the property in the current list
@@ -456,7 +512,187 @@ function Dashboard() {
       setTimeout(() => setError(null), 3000)
     }
   }
+  */
 
+  // Add this function to verify and fix the featured count
+  const verifyFeaturedCount = async () => {
+    setIsLoading(true)
+    try {
+      // Get the actual featured IDs from localStorage
+      const featuredIds = getAllFeaturedPropertiesFromLocalStorage()
+
+      // Count how many of these IDs actually exist in the properties list
+      const actualFeaturedCount = properties.filter((property) => {
+        const propertyId = property._id || property.id
+        return featuredIds.includes(propertyId)
+      }).length
+
+      // Update the stats with the accurate count
+      setStats((prev) => ({
+        ...prev,
+        featuredProperties: actualFeaturedCount,
+      }))
+
+      setSuccessMessage(`Featured count verified: ${actualFeaturedCount} properties are featured`)
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (error) {
+      console.error("Error verifying featured count:", error)
+      setError("Failed to verify featured count")
+      setTimeout(() => setError(null), 3000)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Add this function right after the verifyFeaturedCount function
+  const debugFeaturedProperties = () => {
+    try {
+      // Get all featured IDs from localStorage
+      const featuredIds = getAllFeaturedPropertiesFromLocalStorage()
+
+      // Get the actual properties that match these IDs
+      const matchingProperties = properties.filter((property) => {
+        const propertyId = property._id || property.id
+        return featuredIds.includes(propertyId)
+      })
+
+      // Log detailed information
+      console.log("=== FEATURED PROPERTIES DEBUG ===")
+      console.log(`Total featured IDs in localStorage: ${featuredIds.length}`)
+      console.log("Featured IDs:", featuredIds)
+      console.log(`Matching properties found in API: ${matchingProperties.length}`)
+
+      // Find IDs that don't match any property
+      const missingIds = featuredIds.filter(
+        (id) => !properties.some((property) => (property._id || property.id) === id),
+      )
+
+      if (missingIds.length > 0) {
+        console.log(`Found ${missingIds.length} IDs in localStorage that don't match any property:`)
+        console.log("Missing IDs:", missingIds)
+
+        // Offer to clean up these IDs
+        if (
+          window.confirm(
+            `Found ${missingIds.length} featured IDs in localStorage that don't exist in the API. Clean them up?`,
+          )
+        ) {
+          // Get current featured properties
+          const featuredPropertiesJson = localStorage.getItem(FEATURED_PROPERTIES_STORAGE_KEY) || "{}"
+          const featuredProperties = JSON.parse(featuredPropertiesJson)
+
+          // Remove the missing IDs
+          missingIds.forEach((id) => {
+            delete featuredProperties[id]
+          })
+
+          // Save back to localStorage
+          localStorage.setItem(FEATURED_PROPERTIES_STORAGE_KEY, JSON.stringify(featuredProperties))
+
+          // Update the UI
+          setSuccessMessage(`Cleaned up ${missingIds.length} invalid featured IDs`)
+          setTimeout(() => setSuccessMessage(null), 3000)
+
+          // Refresh properties
+          fetchProperties()
+        }
+      } else {
+        setSuccessMessage("All featured IDs are valid")
+        setTimeout(() => setSuccessMessage(null), 3000)
+      }
+
+      return {
+        featuredIds,
+        matchingProperties,
+        missingIds,
+      }
+    } catch (error) {
+      console.error("Error in debugFeaturedProperties:", error)
+      setError("Error debugging featured properties")
+      setTimeout(() => setError(null), 3000)
+    }
+  }
+
+  // Add this function after the debugFeaturedProperties function
+  const checkFeaturedLimit = () => {
+    try {
+      // Get all featured IDs from localStorage
+      const featuredIds = getAllFeaturedPropertiesFromLocalStorage()
+
+      console.log("=== FEATURED PROPERTIES LIMIT CHECK ===")
+      console.log(`Current featured count: ${featuredIds.length}`)
+      console.log(`Maximum allowed: ${MAX_FEATURED_PROPERTIES}`)
+      console.log(`Can add more: ${featuredIds.length < MAX_FEATURED_PROPERTIES ? "Yes" : "No"}`)
+      console.log(`Featured IDs:`, featuredIds)
+
+      // Show a message with the current status
+      setSuccessMessage(
+        `Current featured count: ${featuredIds.length}/${MAX_FEATURED_PROPERTIES}. ${featuredIds.length < MAX_FEATURED_PROPERTIES ? "You can add more properties." : "You have reached the maximum limit."}`,
+      )
+      setTimeout(() => setSuccessMessage(null), 5000)
+
+      return {
+        currentCount: featuredIds.length,
+        maxAllowed: MAX_FEATURED_PROPERTIES,
+        canAddMore: featuredIds.length < MAX_FEATURED_PROPERTIES,
+      }
+    } catch (error) {
+      console.error("Error checking featured limit:", error)
+      setError("Error checking featured limit")
+      setTimeout(() => setError(null), 3000)
+    }
+  }
+
+  // Reset all featured properties (for debugging)
+  const handleResetFeatured = async () => {
+    if (
+      window.confirm("Are you sure you want to reset all featured properties? This will remove all featured status.")
+    ) {
+      setIsLoading(true)
+      try {
+        const result = await rebuildFeaturedProperties()
+        setSuccessMessage(result.message)
+        setTimeout(() => setSuccessMessage(null), 3000)
+
+        // Update the UI to reflect the changes
+        await fetchProperties()
+      } catch (error) {
+        console.error("Error resetting featured properties:", error)
+        setError("Failed to reset featured properties")
+        setTimeout(() => setError(null), 3000)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+  }
+
+  // Then add a new function for the emergency purge
+  // Add this function after handleResetFeatured
+  const handleEmergencyPurge = async () => {
+    if (
+      window.confirm(
+        "⚠️ EMERGENCY PURGE: This will completely remove ALL featured properties. This action cannot be undone. Are you absolutely sure?",
+      )
+    ) {
+      setIsLoading(true)
+      try {
+        const result = await purgeAllFeaturedProperties()
+        setSuccessMessage(result.message)
+        setTimeout(() => setSuccessMessage(null), 3000)
+
+        // Update the UI to reflect the changes
+        await fetchProperties()
+      } catch (error) {
+        console.error("Error purging featured properties:", error)
+        setError("Failed to purge featured properties")
+        setTimeout(() => setError(null), 3000)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+  }
+
+  // Find the toggleFeatured function and replace it with this:
   // Toggle featured status
   const toggleFeatured = async (propertyId) => {
     try {
@@ -468,55 +704,73 @@ function Dashboard() {
         return
       }
 
-      const newFeaturedStatus = !(property.featured || false)
+      // Get the current featured status
+      const currentFeaturedStatus = property.featured || false
 
-      // Update the UI optimistically
-      setProperties((prevProperties) =>
-        prevProperties.map((p) => ((p._id || p.id) === propertyId ? { ...p, featured: newFeaturedStatus } : p)),
-      )
+      // Get all currently featured property IDs
+      const featuredIds = getAllFeaturedPropertiesFromLocalStorage()
+      console.log(`Current featured IDs: ${featuredIds.join(", ")}`)
+      console.log(`Current featured count: ${featuredIds.length}`)
+      console.log(`MAX_FEATURED_PROPERTIES: ${MAX_FEATURED_PROPERTIES}`)
 
-      try {
-        // Make API call to update the featured status
-        // This will also save to local storage for persistence
-        const result = await toggleFeaturedStatus(propertyId, newFeaturedStatus)
+      // If trying to turn ON featured status
+      if (!currentFeaturedStatus) {
+        console.log(`Attempting to feature property: ${propertyId}`)
 
-        // Check if the result was simulated
-        if (result.simulated) {
-          console.log("Using local storage for persistence - API update failed but UI will remain consistent")
+        // ONLY block if we would exceed the limit (6)
+        if (featuredIds.length > MAX_FEATURED_PROPERTIES - 1) {
+          console.log(`ERROR: Already at max featured properties (${featuredIds.length})`)
+          setError(
+            `Cannot feature more than ${MAX_FEATURED_PROPERTIES} properties. Currently featuring ${featuredIds.length}.`,
+          )
+          setTimeout(() => setError(null), 5000)
+          return
         }
 
-        // Show success message
-        setSuccessMessage(`Property ${newFeaturedStatus ? "added to" : "removed from"} featured listings`)
-        setTimeout(() => setSuccessMessage(null), 3000)
-
-        // Dispatch event to notify other components
-        window.dispatchEvent(
-          new CustomEvent("propertyFeaturedUpdated", {
-            detail: {
-              propertyId,
-              featured: newFeaturedStatus,
-            },
-          }),
-        )
-      } catch (error) {
-        console.error("Error updating featured status:", error)
-
-        // We won't revert the UI change since we're using local storage for persistence
-        // This keeps the UI consistent even if the API fails
-
-        // Show a success message anyway to maintain a good user experience
-        setSuccessMessage(`Property ${newFeaturedStatus ? "added to" : "removed from"} featured listings`)
-        setTimeout(() => setSuccessMessage(null), 3000)
+        console.log(`Featuring property ${propertyId} - will have ${featuredIds.length + 1} featured properties`)
+      } else {
+        console.log(`Unfeaturing property: ${propertyId}`)
       }
+
+      // Update the UI immediately
+      setProperties((prevProperties) =>
+        prevProperties.map((p) => ((p._id || p.id) === propertyId ? { ...p, featured: !currentFeaturedStatus } : p)),
+      )
+
+      // Call the API to update the featured status
+      console.log(
+        `Calling toggleFeaturedStatus API for property ${propertyId}, setting featured=${!currentFeaturedStatus}`,
+      )
+      const result = await toggleFeaturedStatus(propertyId, !currentFeaturedStatus)
+      console.log("API result:", result)
+
+      // Update the stats
+      const updatedFeaturedIds = getAllFeaturedPropertiesFromLocalStorage()
+      console.log(`After toggle, featured count: ${updatedFeaturedIds.length}`)
+
+      setStats((prev) => ({
+        ...prev,
+        featuredProperties: updatedFeaturedIds.length,
+      }))
+
+      // Show success message
+      setSuccessMessage(`Property ${!currentFeaturedStatus ? "added to" : "removed from"} featured listings`)
+      setTimeout(() => setSuccessMessage(null), 3000)
+
+      // Refresh properties to ensure UI is in sync
+      fetchProperties()
     } catch (error) {
       console.error("Error in toggleFeatured:", error)
       setError("An unexpected error occurred")
       setTimeout(() => setError(null), 3000)
+
+      // Refresh properties to ensure UI is in sync even after error
+      fetchProperties()
     }
   }
 
-  // Find the handleDeleteProperty function and update it to dispatch an event after successful deletion
-
+  // handleDeleteProperty function is kept for future use but commented out to avoid ESLint warnings
+  /*
   const handleDeleteProperty = async (propertyId) => {
     if (window.confirm("Are you sure you want to delete this property?")) {
       try {
@@ -539,6 +793,7 @@ function Dashboard() {
       }
     }
   }
+  */
 
   if (isLoading) {
     return <div className="loading">Loading...</div>
@@ -612,6 +867,12 @@ function Dashboard() {
                   <p className="stat-number">{isLoadingProperties ? "Loading..." : stats.totalProperties}</p>
                 </div>
                 <div className="stat-card">
+                  <h3>Featured Properties</h3>
+                  <p className="stat-number">
+                    {isLoadingProperties ? "Loading..." : stats.featuredProperties} / {MAX_FEATURED_PROPERTIES}
+                  </p>
+                </div>
+                <div className="stat-card">
                   <h3>Total Revenue</h3>
                   <p className="stat-number">{formatNPR(stats.totalRevenue)}</p>
                 </div>
@@ -624,6 +885,26 @@ function Dashboard() {
                   <button className="action-button" onClick={() => handleTabChange("properties")}>
                     View All Properties
                   </button>
+                  <button className="action-button" onClick={() => handleTabChange("featured")}>
+                    Manage Featured Properties
+                  </button>
+                  <button className="action-button" onClick={verifyFeaturedCount}>
+                    Verify Featured Count
+                  </button>
+                  <button className="action-button" onClick={debugFeaturedProperties}>
+                    Debug Featured Properties
+                  </button>
+                  <button className="action-button" onClick={checkFeaturedLimit}>
+                    Check Featured Limit
+                  </button>
+                  <button className="action-button danger" onClick={handleResetFeatured}>
+                    <Trash2 size={16} /> Reset Featured Properties
+                  </button>
+                  {stats.featuredProperties > MAX_FEATURED_PROPERTIES && (
+                    <button className="action-button emergency" onClick={handleEmergencyPurge}>
+                      <AlertCircle size={16} /> Emergency Purge All Featured
+                    </button>
+                  )}
                 </div>
               </div>
             </>
@@ -666,7 +947,7 @@ function Dashboard() {
                                   }}
                                 />
                               ) : (
-                                <img src="/placeholder.svg?height=80&width=120" alt="No image available" />
+                                <img src="/placeholder.svg?height=80&width=120" alt="Not available" />
                               )}
                             </td>
                             <td>{property.title}</td>
@@ -702,8 +983,8 @@ function Dashboard() {
             <div className="properties-section">
               <h2>Manage Featured Properties</h2>
               <p className="section-description">
-                Select properties to be displayed in the Featured section on the homepage. Featured properties will be
-                more visible to users.
+                Select up to {MAX_FEATURED_PROPERTIES} properties to be displayed in the Featured section on the
+                homepage. Currently featuring {stats.featuredProperties} out of {MAX_FEATURED_PROPERTIES} properties.
               </p>
 
               {isLoadingProperties ? (
@@ -737,7 +1018,7 @@ function Dashboard() {
                                   }}
                                 />
                               ) : (
-                                <img src="/placeholder.svg?height=80&width=120" alt="No image available" />
+                                <img src="/placeholder.svg?height=80&width=120" alt="Not available" />
                               )}
                             </td>
                             <td>{property.title}</td>
@@ -790,6 +1071,14 @@ function Dashboard() {
             <div className="settings-section">
               <h2>Settings</h2>
               <p>Admin settings will be implemented here.</p>
+              <div className="settings-actions">
+                <button className="action-button danger" onClick={handleResetFeatured}>
+                  <Trash2 size={16} /> Reset Featured Properties
+                </button>
+                <button className="action-button emergency" onClick={handleEmergencyPurge}>
+                  <AlertCircle size={16} /> Emergency Purge All Featured
+                </button>
+              </div>
             </div>
           )}
         </main>

@@ -233,6 +233,14 @@ const Saved = () => {
                           <span>AC</span>
                         </div>
                       )}
+
+                      {/* Custom amenities */}
+                      {listing.customAmenities &&
+                        listing.customAmenities.map((amenity, index) => (
+                          <div key={`custom-${index}`} className="amenity custom-amenity">
+                            <span>{amenity}</span>
+                          </div>
+                        ))}
                     </div>
                     <div className="listing-actions">
                       <button

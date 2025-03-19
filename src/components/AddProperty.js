@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet"
+import { X, Plus, AlertCircle, CheckCircle } from "lucide-react"
 import { addProperty } from "../services/api"
 import "./AddProperty.css"
 
@@ -13,6 +14,14 @@ const center = {
   lat: 27.7172, // Kathmandu, Nepal
   lng: 85.324,
 }
+
+// Predefined amenities list
+const PREDEFINED_AMENITIES = [
+  { id: "wifi", label: "WiFi" },
+  { id: "parking", label: "Parking" },
+  { id: "water", label: "Water" },
+  { id: "ac", label: "AC" },
+]
 
 const validateFiles = (files, type) => {
   const validFiles = []
@@ -46,6 +55,47 @@ function LocationMarker({ position, setPosition }) {
   return position ? <Marker position={position} /> : null
 }
 
+// Custom Modal Component
+function Modal({ isOpen, onClose, title, message, type, isLoading }) {
+  if (!isOpen) return null
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <div className={`modal-header ${type === "error" ? "error" : "success"}`}>
+          <h3>{title}</h3>
+          {!isLoading && (
+            <button className="close-button" onClick={onClose}>
+              ×
+            </button>
+          )}
+        </div>
+        <div className="modal-body">
+          <div className="modal-icon">{type === "error" ? <AlertCircle size={24} /> : <CheckCircle size={24} />}</div>
+          <div className="modal-message">
+            {typeof message === "string" ? (
+              <p>{message}</p>
+            ) : (
+              Array.isArray(message) && message.map((line, index) => <p key={index}>{line}</p>)
+            )}
+          </div>
+        </div>
+        <div className="modal-footer">
+          {type === "success" ? (
+            <button className="modal-button success-button" onClick={onClose} disabled={isLoading}>
+              {isLoading ? "Processing..." : "Continue"}
+            </button>
+          ) : (
+            <button className="modal-button error-button" onClick={onClose} disabled={isLoading}>
+              {isLoading ? "Processing..." : "Try Again"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AddProperty() {
   const [formData, setFormData] = useState({
     title: "",
@@ -58,12 +108,20 @@ function AddProperty() {
     bathrooms: "",
     furnished: false,
     amenities: [],
+    customAmenities: [],
     images: [],
     video: null,
   })
+  const [newCustomAmenity, setNewCustomAmenity] = useState("")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [mapPosition, setMapPosition] = useState(center)
   const [isLoading, setIsLoading] = useState(false)
+  const [modal, setModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "success", // "success" or "error"
+  })
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -84,7 +142,7 @@ function AddProperty() {
         const { validFiles, errors } = validateFiles(files, fileType)
 
         if (errors.length > 0) {
-          alert(errors.join("\n"))
+          showModal("File Error", errors, "error")
         }
 
         if (name === "images") {
@@ -106,7 +164,7 @@ function AddProperty() {
       }
     } catch (error) {
       console.error("Error in handleInputChange:", error)
-      alert(error.message)
+      showModal("Input Error", error.message, "error")
       e.target.value = "" // Reset the file input
     }
   }
@@ -124,11 +182,46 @@ function AddProperty() {
     })
   }
 
-  const validateAmenities = (amenities) => {
-    if (amenities.length === 0) {
-      return "Please select at least one amenity"
+  const handleAddCustomAmenity = () => {
+    if (newCustomAmenity.trim() === "") return
+
+    setFormData((prevState) => ({
+      ...prevState,
+      customAmenities: [...prevState.customAmenities, newCustomAmenity.trim()],
+    }))
+    setNewCustomAmenity("")
+  }
+
+  const handleRemoveCustomAmenity = (index) => {
+    setFormData((prevState) => ({
+      ...prevState,
+      customAmenities: prevState.customAmenities.filter((_, i) => i !== index),
+    }))
+  }
+
+  const validateAmenities = (amenities, customAmenities) => {
+    if (amenities.length === 0 && customAmenities.length === 0) {
+      return "Please select at least one amenity or add a custom amenity"
     }
     return null
+  }
+
+  const showModal = (title, message, type = "success") => {
+    setModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+    })
+  }
+
+  const closeModal = () => {
+    setModal((prev) => ({ ...prev, isOpen: false }))
+
+    // If it was a success modal, navigate to the rooms page instead of homepage
+    if (modal.type === "success" && !isLoading) {
+      navigate("/rooms")
+    }
   }
 
   // Update the handleSubmit function to better handle validation errors
@@ -157,16 +250,16 @@ function AddProperty() {
         errors.price = "Price must be a valid positive number"
       }
 
-      const amenitiesError = validateAmenities(formData.amenities)
+      const amenitiesError = validateAmenities(formData.amenities, formData.customAmenities)
       if (amenitiesError) {
         errors.amenities = amenitiesError
       }
 
       if (Object.keys(errors).length > 0) {
-        const errorMessage = Object.entries(errors)
-          .map(([field, message]) => `${message}`)
-          .join("\n")
-        throw new Error(errorMessage)
+        const errorMessages = Object.entries(errors).map(([field, message]) => `${message}`)
+        showModal("Validation Error", errorMessages, "error")
+        setIsLoading(false)
+        return
       }
 
       const formDataToSend = new FormData()
@@ -179,7 +272,7 @@ function AddProperty() {
           })
         } else if (key === "video" && value) {
           formDataToSend.append("video", value)
-        } else if (key === "amenities") {
+        } else if (key === "amenities" || key === "customAmenities") {
           formDataToSend.append(key, JSON.stringify(value))
         } else if (key === "price") {
           formDataToSend.append(key, Number.parseFloat(value).toString())
@@ -218,35 +311,34 @@ function AddProperty() {
       const updatedProperties = [...existingProperties, newProperty]
       localStorage.setItem("properties", JSON.stringify(updatedProperties))
 
-      alert("Property added successfully!")
-      navigate("/")
+      // Show success modal
+      showModal(
+        "Success",
+        "Property added successfully! You will be redirected to the View All Rooms page where your new listing will appear.",
+        "success",
+      )
     } catch (error) {
       console.error("Error adding property:", error)
-      let errorMessage = "Failed to add property. "
+      const errorMessage = "Failed to add property. "
 
       if (error.response) {
         if (error.response.status === 400) {
           // Handle validation errors from server
           const validationErrors = error.response.data.errors
           if (validationErrors) {
-            errorMessage +=
-              "\n\nValidation errors:\n" +
-              Object.entries(validationErrors)
-                .map(([field, message]) => `${field}: ${message}`)
-                .join("\n")
+            const errorMessages = Object.entries(validationErrors).map(([field, message]) => `${field}: ${message}`)
+            showModal("Validation Error", errorMessages, "error")
           } else {
-            errorMessage += error.response.data.message || "Please check your input."
+            showModal("Server Error", error.response.data.message || "Please check your input.", "error")
           }
         } else {
-          errorMessage += `Server error (${error.response.status})`
+          showModal("Server Error", `Server error (${error.response.status})`, "error")
         }
       } else if (error.request) {
-        errorMessage += "No response from server. Please check your connection."
+        showModal("Connection Error", "No response from server. Please check your connection.", "error")
       } else {
-        errorMessage += error.message || "An unexpected error occurred"
+        showModal("Error", error.message || "An unexpected error occurred", "error")
       }
-
-      alert(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -363,43 +455,56 @@ function AddProperty() {
             <div className="form-group">
               <label>Amenities</label>
               <div className="amenities-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    value="wifi"
-                    checked={formData.amenities.includes("wifi")}
-                    onChange={handleAmenityChange}
-                  />
-                  WiFi
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    value="parking"
-                    checked={formData.amenities.includes("parking")}
-                    onChange={handleAmenityChange}
-                  />
-                  Parking
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    value="water"
-                    checked={formData.amenities.includes("water")}
-                    onChange={handleAmenityChange}
-                  />
-                  Water
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    value="ac"
-                    checked={formData.amenities.includes("ac")}
-                    onChange={handleAmenityChange}
-                  />
-                  AC
-                </label>
+                {PREDEFINED_AMENITIES.map((amenity) => (
+                  <label key={amenity.id}>
+                    <input
+                      type="checkbox"
+                      value={amenity.id}
+                      checked={formData.amenities.includes(amenity.id)}
+                      onChange={handleAmenityChange}
+                    />
+                    {amenity.label}
+                  </label>
+                ))}
               </div>
+            </div>
+
+            <div className="form-group">
+              <label>Custom Amenities</label>
+              <div className="custom-amenities-input">
+                <input
+                  type="text"
+                  value={newCustomAmenity}
+                  onChange={(e) => setNewCustomAmenity(e.target.value)}
+                  placeholder="Add custom amenity"
+                  className="custom-amenity-input"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomAmenity}
+                  className="add-custom-amenity-btn"
+                  disabled={!newCustomAmenity.trim()}
+                >
+                  <Plus size={16} /> Add
+                </button>
+              </div>
+
+              {formData.customAmenities.length > 0 && (
+                <div className="custom-amenities-list">
+                  {formData.customAmenities.map((amenity, index) => (
+                    <div key={index} className="custom-amenity-tag">
+                      <span>{amenity}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCustomAmenity(index)}
+                        className="remove-custom-amenity-btn"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -437,6 +542,16 @@ function AddProperty() {
       <footer className="footer">
         <p>&copy; 2024 RoomRental. All rights reserved.</p>
       </footer>
+
+      {/* Custom Modal */}
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        isLoading={isLoading}
+      />
     </div>
   )
 }
