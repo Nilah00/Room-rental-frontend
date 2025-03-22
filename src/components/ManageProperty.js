@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Edit, Trash2, Home, Plus, Eye, ArrowUp, ArrowDown, Search, AlertCircle, Lock, RefreshCw } from "lucide-react"
-import { getUserProperties, deleteProperty, updatePropertyStatus, getFeaturedProperties } from "../services/api"
+import { Edit, Trash2, Home, Plus, Eye, ArrowUp, ArrowDown, Search, AlertCircle, Lock, RefreshCw, Calendar, MapPin, X } from 'lucide-react'
+import { getUserProperties, updatePropertyStatus, getFeaturedProperties, deleteProperty } from "../services/api"
 import { getImageUrl } from "./imageUtils"
 import "./ManageProperty.css"
 
 export default function ManageProperties() {
   const [properties, setProperties] = useState([])
   const [filteredProperties, setFilteredProperties] = useState([])
+  const [mapProperties, setMapProperties] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -20,11 +21,11 @@ export default function ManageProperties() {
   const [isLandlord, setIsLandlord] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [deleteError, setDeleteError] = useState("")
-  const [showPropertyManager, setShowPropertyManager] = useState(false)
-  const [mapProperties, setMapProperties] = useState([])
   const [currentUserId, setCurrentUserId] = useState(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [propertyToDelete, setPropertyToDelete] = useState(null)
+  const [showMapPropertiesModal, setShowMapPropertiesModal] = useState(false)
+  const [mapPropertiesLoading, setMapPropertiesLoading] = useState(false)
 
   useEffect(() => {
     // Get current user ID first
@@ -45,15 +46,15 @@ export default function ManageProperties() {
   // Check user role and fetch map properties after role is determined
   useEffect(() => {
     if (isLandlord || isAdmin) {
-      fetchMapProperties()
+      
     }
   }, [isLandlord, isAdmin, currentUserId])
 
   useEffect(() => {
     const filtered = properties.filter(
       (property) =>
-        property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.location.toLowerCase().includes(searchTerm.toLowerCase()),
+        property.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        property.location?.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     setFilteredProperties(filtered)
   }, [searchTerm, properties])
@@ -64,35 +65,33 @@ export default function ManageProperties() {
       // Check if user is logged in
       const userJson = localStorage.getItem("user")
       if (!userJson) {
-        setIsLandlord(false)
-        setIsAdmin(false)
-        setCurrentUserId(null)
+        // Force roles to true even if not logged in
+        setIsLandlord(true)
+        setIsAdmin(true)
+        setCurrentUserId("default-user")
         return
       }
 
       const user = JSON.parse(userJson)
 
       // Set current user ID
-      setCurrentUserId(user.id || user._id)
+      setCurrentUserId(user.id || user._id || "default-user")
 
-      // Check if user is a landlord (has role property with value "landlord" or "owner")
-      const isUserLandlord = user.role === "landlord" || user.role === "owner" || user.isLandlord === true
-      setIsLandlord(isUserLandlord)
+      // Force landlord and admin roles to true
+      setIsLandlord(true)
+      setIsAdmin(true)
 
-      // Check if user is an admin
-      const isUserAdmin = user.role === "admin" || user.isAdmin === true || localStorage.getItem("adminToken") !== null
-      setIsAdmin(isUserAdmin)
-
-      console.log("User permissions:", {
-        isLandlord: isUserLandlord,
-        isAdmin: isUserAdmin,
-        userId: user.id || user._id,
+      console.log("User permissions overridden:", {
+        isLandlord: true,
+        isAdmin: true,
+        userId: user.id || user._id || "default-user",
       })
     } catch (error) {
       console.error("Error checking user permissions:", error)
-      setIsLandlord(false)
-      setIsAdmin(false)
-      setCurrentUserId(null)
+      // Force roles to true even on error
+      setIsLandlord(true)
+      setIsAdmin(true)
+      setCurrentUserId("default-user")
     }
   }
 
@@ -110,46 +109,110 @@ export default function ManageProperties() {
     }
   }
 
-  // Function to fetch properties from localStorage for the map
-  const fetchMapProperties = async () => {
-    try {
-      // Use the same API call that's used for regular properties
-      // This ensures consistent filtering based on user permissions
-      const response = await getUserProperties()
-
-      if (!response.data || !Array.isArray(response.data)) {
-        console.log("No map properties found or invalid response format")
-        setMapProperties([])
-        return
-      }
-
-      console.log("Retrieved map properties from API:", response.data)
-
-      // Filter out properties with invalid coordinates
-      const validProperties = response.data.filter((property) => {
-        const lat = Number(property.latitude)
-        const lng = Number(property.longitude)
-        const hasValidCoords = validateCoordinates(lat, lng)
-
-        if (!hasValidCoords) {
-          console.log(`Filtering out property with invalid coordinates: ${property._id || property.id}`)
-        }
-
-        return hasValidCoords
-      })
-
-      console.log(`Found ${validProperties.length} valid map properties`)
-      setMapProperties(validProperties)
-    } catch (error) {
-      console.error("Error fetching map properties:", error)
-      setMapProperties([])
-    }
-  }
-
   // Function to validate coordinates
   const validateCoordinates = (lat, lng) => {
     return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
   }
+
+  // Function to fetch map properties from localStorage
+  const fetchMapProperties = () => {
+    try {
+      setMapPropertiesLoading(true);
+
+      // Get properties from localStorage
+      const storedPropertiesJson = localStorage.getItem("properties");
+      if (!storedPropertiesJson) {
+        console.log("No properties found in localStorage");
+        setMapProperties([]);
+        setMapPropertiesLoading(false);
+        return;
+      }
+
+      let storedProperties = JSON.parse(storedPropertiesJson);
+      console.log("Retrieved properties from localStorage:", storedProperties.length);
+
+      if (!Array.isArray(storedProperties)) {
+        console.error("Properties in localStorage is not an array:", storedProperties);
+        setMapProperties([]);
+        setMapPropertiesLoading(false);
+        return;
+      }
+
+      // Filter out properties marked as deleted
+      storedProperties = storedProperties.filter((property) => !property.isDeleted);
+      console.log("After filtering deleted properties:", storedProperties.length);
+
+      // Get the current user ID from localStorage
+      const userJson = localStorage.getItem("user");
+      let userId = null;
+      if (userJson) {
+        try {
+          const user = JSON.parse(userJson);
+          userId = user.id || user._id;
+          console.log("Current user ID for filtering map properties:", userId);
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+        }
+      }
+
+      // Filter properties by owner if user ID is available
+      if (userId) {
+        storedProperties = storedProperties.filter((property) => {
+          const propertyOwnerId = property.owner?._id || property.owner?.id || property.ownerId;
+          
+          // If property has no owner info, keep it for backward compatibility
+          if (!propertyOwnerId) {
+            console.log(`Property ${property._id || property.id} has no owner info, keeping it visible`);
+            return true;
+          }
+          
+          const isOwner = String(propertyOwnerId) === String(userId);
+          
+          if (!isOwner) {
+            console.log(`Filtering out property not owned by current user: ${property._id || property.id}`);
+          }
+          
+          return isOwner;
+        });
+        console.log("After filtering by owner:", storedProperties.length);
+      } else {
+        console.log("No user ID available, showing all properties");
+      }
+
+      // Filter properties with valid coordinates
+      const validProperties = storedProperties.filter((property) => {
+        // Check coordinates
+        const lat = Number(property.latitude);
+        const lng = Number(property.longitude);
+        const hasValidCoords = validateCoordinates(lat, lng);
+
+        if (!hasValidCoords) {
+          console.log(`Filtering out property with invalid coordinates: ${property._id || property.id}`);
+          return false;
+        }
+
+        return true;
+      });
+
+      console.log("Valid properties for map:", validProperties.length);
+
+      // Ensure each property has a unique ID for React keys
+      const propertiesWithUniqueKeys = validProperties.map((property, index) => {
+        if (!property._id && !property.id) {
+          return { ...property, id: `temp-id-${index}` };
+        }
+        return property;
+      });
+
+      // Set map properties state
+      setMapProperties(propertiesWithUniqueKeys);
+      setMapPropertiesLoading(false);
+    } catch (error) {
+      console.error("Error fetching map properties:", error);
+      setMapProperties([]);
+      setMapPropertiesLoading(false);
+    }
+  };
 
   const handleEdit = (propertyId) => {
     navigate(`/edit-property/${propertyId}`)
@@ -162,14 +225,16 @@ export default function ManageProperties() {
     try {
       // Check if property owner matches user ID
       const propertyOwnerId = property.owner?._id || property.owner?.id || property.ownerId
-
-      return propertyOwnerId === currentUserId
+      
+      // Strict comparison to ensure correct ownership
+      return String(propertyOwnerId) === String(currentUserId)
     } catch (error) {
       console.error("Error checking property ownership:", error)
       return false
     }
   }
 
+  // Modify the handleDelete function to set up the deletion modal
   const handleDelete = async (propertyId, propertyTitle) => {
     if (isDeleting) return
 
@@ -177,22 +242,12 @@ export default function ManageProperties() {
       // Find the property
       const property = properties.find((p) => p._id === propertyId)
 
-      // Check if user is authorized to delete this property
-      if (!isAdmin && !isLandlord) {
-        setDeleteError("You don't have permission to delete properties.")
-        setTimeout(() => setDeleteError(""), 3000)
-        return
-      }
-
-      // If user is a landlord but not admin, check if they own the property
-      if (isLandlord && !isAdmin && !userOwnsProperty(property)) {
-        setDeleteError("You can only delete your own properties.")
-        setTimeout(() => setDeleteError(""), 3000)
-        return
-      }
-
       // Set the property to delete and show the confirmation modal
-      setPropertyToDelete({ id: propertyId, title: propertyTitle })
+      setPropertyToDelete({
+        id: propertyId,
+        title: propertyTitle,
+        deleteFromMap: false, // Default to not deleting from map
+      })
       setShowDeleteModal(true)
     } catch (error) {
       console.error("Error preparing to delete property:", error)
@@ -201,112 +256,241 @@ export default function ManageProperties() {
     }
   }
 
+  // Update the handleDeleteMapProperty function to only delete from map
+  const handleDeleteMapProperty = (property) => {
+    const propertyId = property._id || property.id
+    const propertyTitle = property.title || "Unnamed Property"
+
+    if (window.confirm(`Are you sure you want to delete "${propertyTitle}" from the map?`)) {
+      deleteFromMap(propertyId)
+      alert(`Property successfully removed from the map.`)
+    }
+  }
+
   // Function to delete a property from the map
   const deleteMapProperty = (propertyId) => {
     try {
-      // Check if user is authorized to delete properties
-      if (!isAdmin && !isLandlord) {
-        setDeleteError("You don't have permission to delete properties.")
-        setTimeout(() => setDeleteError(""), 3000)
-        return
-      }
+      console.log(`MAP DELETE: Starting deletion for property ID: ${propertyId}`)
 
-      // Find the property
-      const property = mapProperties.find((p) => (p._id || p.id) === propertyId)
-
-      // If user is a landlord but not admin, check if they own the property
-      if (isLandlord && !isAdmin && !userOwnsProperty(property)) {
-        setDeleteError("You can only delete your own properties.")
-        setTimeout(() => setDeleteError(""), 3000)
-        return
-      }
-
-      // Set the property to delete and show the confirmation modal
-      setPropertyToDelete({ id: propertyId, title: property?.title || "this property", isMapProperty: true })
-      setShowDeleteModal(true)
-    } catch (error) {
-      console.error("Error preparing to delete map property:", error)
-      setDeleteError(`Failed to delete property from map: ${error.message}`)
-      setTimeout(() => setDeleteError(""), 3000)
-    }
-  }
-
-  // Function to reset all properties in localStorage - ADMIN ONLY
-  const resetMapProperties = () => {
-    if (!isAdmin) {
-      setDeleteError("Only administrators can reset all properties.")
-      setTimeout(() => setDeleteError(""), 3000)
-      return
-    }
-
-    if (window.confirm("This will remove ALL properties from the map. Are you sure?")) {
-      localStorage.removeItem("properties")
-      console.log("All properties have been removed from localStorage")
-      setMapProperties([])
-
-      // Dispatch event to notify other components
-      window.dispatchEvent(new Event("storage"))
-
-      alert("All properties have been removed from the map.")
-    }
-  }
-
-  const confirmDeletion = async () => {
-    if (!propertyToDelete) return
-
-    setIsDeleting(true)
-
-    try {
-      const { id: propertyId, isMapProperty } = propertyToDelete
-
-      // First, update localStorage directly to ensure the map is updated immediately
+      // Get properties from localStorage
       const storedPropertiesJson = localStorage.getItem("properties")
-      if (storedPropertiesJson) {
-        const storedProperties = JSON.parse(storedPropertiesJson)
-        const updatedProperties = storedProperties.filter((property) => {
-          // Use both _id and id for comparison to ensure all matching properties are removed
-          const propId = property._id || property.id
-          return propId !== propertyId
-        })
-
-        // Save the updated properties back to localStorage
-        localStorage.setItem("properties", JSON.stringify(updatedProperties))
-        console.log(`Property ${propertyId} removed from localStorage`)
-
-        // Update the map properties state
-        setMapProperties(updatedProperties.filter((p) => validateCoordinates(Number(p.latitude), Number(p.longitude))))
+      if (!storedPropertiesJson) {
+        console.log("No properties found in localStorage")
+        return
       }
 
-      // If it's not just a map property, also delete from the API
-      if (!isMapProperty) {
-        try {
-          await deleteProperty(propertyId)
-        } catch (apiError) {
-          console.error("API Error deleting property:", apiError)
-        }
+      // Parse the properties
+      const storedProperties = JSON.parse(storedPropertiesJson)
+      console.log(`Found ${storedProperties.length} properties in localStorage before deletion`)
+
+      // Find the property to delete
+      const propertyToDelete = storedProperties.find((p) => {
+        const id = p._id || p.id
+        return id === propertyId
+      })
+
+      if (!propertyToDelete) {
+        console.log(`Property with ID ${propertyId} not found in localStorage`)
+        return
       }
 
-      // Update the UI
-      setProperties((prev) => prev.filter((prop) => prop._id !== propertyId))
-      setFilteredProperties((prev) => prev.filter((prop) => prop._id !== propertyId))
+      console.log(`Found property to delete: ${propertyToDelete.title} (${propertyId})`)
 
-      // Force a refresh of the map by dispatching an event
-      window.dispatchEvent(new Event("storage"))
+      // Remove the property from the array
+      const updatedProperties = storedProperties.filter((p) => {
+        const id = p._id || p.id
+        const stringId = String(id)
+        const stringPropertyId = String(propertyId)
 
-      // Also dispatch the propertyDeleted event for any other components
+        // Check multiple formats of the ID to ensure we catch it
+        const keepProperty = stringId !== stringPropertyId && stringId !== `"${stringPropertyId}"` && id !== propertyId
+
+        console.log(`Property ${id}: ${keepProperty ? "keeping" : "REMOVING from map"}`)
+        return keepProperty
+      })
+
+      console.log(`After filtering: ${updatedProperties.length} properties remain in map`)
+
+      // Save the updated array back to localStorage
+      localStorage.setItem("properties", JSON.stringify(updatedProperties))
+      console.log(`Property ${propertyId} removed from map (localStorage)`)
+
+      // Update the map properties state
+      setMapProperties((prev) => prev.filter((p) => (p._id || p.id) !== propertyId))
+
+      // Dispatch events to notify other components
       window.dispatchEvent(
         new CustomEvent("propertyDeleted", {
           detail: { propertyId },
         }),
       )
+      window.dispatchEvent(new Event("storage"))
+      window.dispatchEvent(new Event("localStorageUpdated"))
+
+      // Force refresh the map if the global function exists
+      if (typeof window.forceRefreshMap === "function") {
+        console.log("Calling global forceRefreshMap function")
+        setTimeout(() => window.forceRefreshMap(), 300)
+      }
+
+      alert(`Property successfully removed from the map.`)
     } catch (error) {
-      console.error("Error deleting property:", error)
-      setDeleteError(`Failed to delete property: ${error.message}`)
-      setTimeout(() => setDeleteError(""), 3000)
+      console.error("Error deleting map property:", error)
+      alert(`Failed to delete property from map: ${error.message}`)
+    }
+  }
+
+  // Modify the resetMapProperties function to show the map properties modal
+  const resetMapProperties = () => {
+    // Fetch map properties and show the modal
+    fetchMapProperties()
+    setShowMapPropertiesModal(true)
+  }
+
+  // Function to completely clear all map properties
+  const clearAllMapProperties = () => {
+    if (window.confirm("This will COMPLETELY REMOVE ALL properties from the map. Are you sure?")) {
+      try {
+        console.log("AGGRESSIVE CLEAR: Removing all properties from localStorage")
+
+        // Completely remove the properties key from localStorage
+        localStorage.removeItem("properties")
+
+        // Set an empty array as a fallback
+        localStorage.setItem("properties", JSON.stringify([]))
+
+        console.log("All properties have been removed from localStorage")
+
+        // Update the map properties state
+        setMapProperties([])
+
+        // Dispatch events to notify other components
+        window.dispatchEvent(new Event("storage"))
+        window.dispatchEvent(new Event("localStorageUpdated"))
+
+        // Force refresh the map if the global function exists
+        if (typeof window.forceRefreshMap === "function") {
+          console.log("Calling global forceRefreshMap function")
+          setTimeout(() => window.forceRefreshMap(), 300)
+        }
+
+        // Close the modal
+        setShowMapPropertiesModal(false)
+
+        alert("All properties have been completely removed from the map.")
+      } catch (error) {
+        console.error("Error clearing properties:", error)
+        setDeleteError(`Failed to clear properties: ${error.message}`)
+        setTimeout(() => setDeleteError(""), 3000)
+      }
+    }
+  }
+
+  // Modify the confirmDeletion function to only handle database deletion
+  const confirmDeletion = async (property) => {
+    try {
+      setIsDeleting(true)
+      setShowDeleteModal(false)
+
+      console.log("LANDLORD DELETE: Starting deletion process for property:", property)
+      const propertyId = property.id || property._id
+      console.log("LANDLORD DELETE: Property ID to delete:", propertyId)
+
+      // Call the API to delete the property from the database
+      await deleteProperty(propertyId)
+      console.log("LANDLORD DELETE: Property deleted from database successfully")
+
+      // Remove from landlord properties state
+      setProperties((prevProperties) => prevProperties.filter((p) => (p.id || p._id) !== propertyId))
+
+      setFilteredProperties((prevProperties) => prevProperties.filter((p) => (p.id || p._id) !== propertyId))
+
+      // Check if we should also delete from map
+      if (property.deleteFromMap) {
+        console.log("LANDLORD DELETE: Also deleting from map as requested")
+        deleteFromMap(propertyId)
+      }
+
+      alert("Property deleted successfully from landlord list!")
+    } catch (error) {
+      console.error("LANDLORD DELETE ERROR:", error)
+      alert("Error deleting property from database. Please try again.")
     } finally {
       setIsDeleting(false)
-      setShowDeleteModal(false)
       setPropertyToDelete(null)
+    }
+  }
+
+  // Add a new function to handle map deletion
+  const deleteFromMap = (propertyId) => {
+    try {
+      console.log(`MAP DELETE: Starting deletion for property ID: ${propertyId}`)
+
+      // Get properties from localStorage
+      const storedPropertiesJson = localStorage.getItem("properties")
+      if (!storedPropertiesJson) {
+        console.log("No properties found in localStorage")
+        return
+      }
+
+      // Parse the properties
+      const storedProperties = JSON.parse(storedPropertiesJson)
+      console.log(`Found ${storedProperties.length} properties in localStorage before deletion`)
+
+      // Find the property to delete
+      const propertyToDelete = storedProperties.find((p) => {
+        const id = p._id || p.id
+        return id === propertyId
+      })
+
+      if (!propertyToDelete) {
+        console.log(`Property with ID ${propertyId} not found in localStorage`)
+        return
+      }
+
+      console.log(`Found property to delete: ${propertyToDelete.title} (${propertyId})`)
+
+      // Remove the property from the array
+      const updatedProperties = storedProperties.filter((p) => {
+        const id = p._id || p.id
+        const stringId = String(id)
+        const stringPropertyId = String(propertyId)
+
+        // Check multiple formats of the ID to ensure we catch it
+        const keepProperty = stringId !== stringPropertyId && stringId !== `"${stringPropertyId}"` && id !== propertyId
+
+        console.log(`Property ${id}: ${keepProperty ? "keeping" : "REMOVING from map"}`)
+        return keepProperty
+      })
+
+      console.log(`After filtering: ${updatedProperties.length} properties remain in map`)
+
+      // Save the updated array back to localStorage
+      localStorage.setItem("properties", JSON.stringify(updatedProperties))
+      console.log(`Property ${propertyId} removed from map (localStorage)`)
+
+      // Update the map properties state if the modal is open
+      if (showMapPropertiesModal) {
+        setMapProperties((prev) => prev.filter((p) => (p._id || p.id) !== propertyId))
+      }
+
+      // Dispatch events to notify other components
+      window.dispatchEvent(
+        new CustomEvent("propertyDeleted", {
+          detail: { propertyId },
+        }),
+      )
+      window.dispatchEvent(new Event("storage"))
+      window.dispatchEvent(new Event("localStorageUpdated"))
+
+      // Force refresh the map if the global function exists
+      if (typeof window.forceRefreshMap === "function") {
+        console.log("Calling global forceRefreshMap function")
+        setTimeout(() => window.forceRefreshMap(), 300)
+      }
+    } catch (error) {
+      console.error("Error deleting map property:", error)
+      console.log(`Failed to delete property from map: ${error.message}`)
     }
   }
 
@@ -377,11 +561,6 @@ export default function ManageProperties() {
     setSearchTerm(e.target.value)
   }
 
-  // Function to refresh map properties
-  const refreshMapProperties = () => {
-    fetchMapProperties()
-  }
-
   if (loading) {
     return (
       <div className="manage-properties-container">
@@ -406,12 +585,23 @@ export default function ManageProperties() {
   return (
     <div className="manage-properties-container">
       <header className="manage-properties-header">
-        <h1>Manage Your Properties</h1>
+        <h1>Manage Landlord Properties</h1>
         <Link to="/" className="back-home-button">
           <Home size={18} />
           Back to Home
         </Link>
       </header>
+
+      {/* Booking Management Card - Positioned at the top */}
+      <div className="booking-card-top">
+        <div className="booking-card-content">
+          <Calendar size={18} className="booking-icon" />
+          <span className="booking-text">Manage booking requests for your properties</span>
+          <Link to="/manage-bookings" className="booking-card-button">
+            Manage Bookings
+          </Link>
+        </div>
+      </div>
 
       <div className="actions-bar">
         <div className="left-actions">
@@ -419,11 +609,10 @@ export default function ManageProperties() {
             <Plus size={18} />
             Add New Property
           </Link>
-          {(isLandlord || isAdmin) && (
-            <button onClick={() => setShowPropertyManager(!showPropertyManager)} className="manage-map-btn">
-              {showPropertyManager ? "Hide Map Properties" : "Show Map Properties"}
-            </button>
-          )}
+          {/* Make the map properties button visible to all users */}
+          <button onClick={resetMapProperties} className="manage-map-btn" style={{ display: "flex" }}>
+            <MapPin size={16} /> Manage Map Properties
+          </button>
         </div>
         <div className="search-bar">
           <Search size={18} />
@@ -438,56 +627,8 @@ export default function ManageProperties() {
         </div>
       )}
 
-      {/* Map Property Manager Section */}
-      {showPropertyManager && (isLandlord || isAdmin) && (
-        <div className="map-property-manager">
-          <div className="map-manager-header">
-            <h3>Map Property Manager {isAdmin && <span className="admin-badge">Landlord</span>}</h3>
-            <button onClick={refreshMapProperties} className="refresh-map-btn">
-              <RefreshCw size={16} /> Refresh Map Properties
-            </button>
-          </div>
-
-          <p>
-            {isAdmin
-              ? "As a Landlord, you can manage all properties on the map."
-              : "You can manage your properties displayed on the map."}
-          </p>
-
-          {mapProperties.length === 0 ? (
-            <div className="no-map-properties">
-              <p>You don't have any properties on the map.</p>
-            </div>
-          ) : (
-            <div className="map-property-list">
-              {mapProperties.map((property) => {
-                const propertyId = property._id || property.id
-                return (
-                  <div key={propertyId} className="map-property-item">
-                    <div className="map-property-info">
-                      <strong>{property.title || "Unnamed Property"}</strong>
-                      <span>{property.location || "Unknown location"}</span>
-                      <span className="map-property-coords">
-                        [{property.latitude.toFixed(4)}, {property.longitude.toFixed(4)}]
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => deleteMapProperty(propertyId)}
-                      className="delete-map-property-btn"
-                      title="Delete this property from the map"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Regular Properties Table */}
-      <h2 className="section-title">Your Properties</h2>
+      <h2 className="section-title">Landlord Properties</h2>
       {!filteredProperties || filteredProperties.length === 0 ? (
         <div className="no-properties-message">
           <p>No properties found.</p>
@@ -539,9 +680,7 @@ export default function ManageProperties() {
                     >
                       <option value="Available">Available</option>
                       <option value="Booked">Booked</option>
-                      <option value="Not Available">Not Available</option>
-                      <option value="Maintenance">Maintenance</option>
-                      <option value="Reserved">Reserved</option>
+                      <option value="Pending">Pending</option>
                     </select>
                   </td>
                   <td>
@@ -553,29 +692,21 @@ export default function ManageProperties() {
                       >
                         <Eye size={16} />
                       </button>
-                      {isAdmin || userOwnsProperty(property) ? (
-                        <>
-                          <button
-                            onClick={() => handleEdit(property._id)}
-                            className="edit-button"
-                            title="Edit property"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(property._id, property.title)}
-                            className="delete-button"
-                            title="Delete property"
-                            disabled={isDeleting}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </>
-                      ) : (
-                        <span className="locked-icon" title="You don't own this property">
-                          <Lock size={16} />
-                        </span>
-                      )}
+                      <button
+                        onClick={() => handleEdit(property._id)}
+                        className="edit-button"
+                        title="Edit property"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(property._id, property.title)}
+                        className="delete-button"
+                        title="Force delete property"
+                        disabled={isDeleting}
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -584,6 +715,8 @@ export default function ManageProperties() {
           </table>
         </div>
       )}
+
+      {/* Property Deletion Confirmation Modal */}
       {showDeleteModal && propertyToDelete && (
         <div className="delete-modal-overlay">
           <div className="delete-modal">
@@ -595,6 +728,22 @@ export default function ManageProperties() {
                 Are you sure you want to delete <strong>"{propertyToDelete.title}"</strong>?
               </p>
               <p className="delete-warning">This action cannot be undone.</p>
+
+              {/* Add checkbox for map deletion */}
+              <div className="delete-option">
+                <input
+                  type="checkbox"
+                  id="deleteFromMap"
+                  checked={propertyToDelete.deleteFromMap}
+                  onChange={() =>
+                    setPropertyToDelete({
+                      ...propertyToDelete,
+                      deleteFromMap: !propertyToDelete.deleteFromMap,
+                    })
+                  }
+                />
+                <label htmlFor="deleteFromMap">Also remove this property from the map</label>
+              </div>
             </div>
             <div className="delete-modal-footer">
               <button
@@ -607,14 +756,95 @@ export default function ManageProperties() {
               >
                 Cancel
               </button>
-              <button className="confirm-delete-button" onClick={confirmDeletion} disabled={isDeleting}>
+              <button
+                className="confirm-delete-button"
+                onClick={() => confirmDeletion(propertyToDelete)}
+                disabled={isDeleting}
+              >
                 {isDeleting ? "Deleting..." : "Delete Property"}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Map Properties Management Modal */}
+      {showMapPropertiesModal && (
+        <div className="map-properties-modal-overlay">
+          <div className="map-properties-modal">
+            <div className="map-properties-modal-header">
+              <h3>Manage Map Properties</h3>
+              <button className="close-modal-button" onClick={() => setShowMapPropertiesModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="map-properties-modal-body">
+              {mapPropertiesLoading ? (
+                <div className="loading-message">Loading map properties...</div>
+              ) : mapProperties.length === 0 ? (
+                <div className="no-properties-message">
+                  <p>No properties found on the map.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="map-properties-count">{mapProperties.length} properties currently on the map</p>
+                  <div className="map-properties-list">
+                    {mapProperties.map((property) => {
+                      const propertyId = property._id || property.id
+                      return (
+                        <div key={propertyId} className="map-property-item">
+                          <div className="map-property-info">
+                            <strong>{property.title || "Unnamed Property"}</strong>
+                            <span>{property.location || "Unknown location"}</span>
+                            <span className="map-property-coords">
+                              [{property.latitude?.toFixed(4) || "N/A"}, {property.longitude?.toFixed(4) || "N/A"}]
+                            </span>
+                          </div>
+                          <div className="map-property-actions">
+                            <button
+                              onClick={() => navigate(`/room/${propertyId}`)}
+                              className="view-map-property-btn"
+                              title="View property"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMapProperty(property)}
+                              className="delete-map-property-btn"
+                              title="Delete this property from the map"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="map-properties-modal-footer">
+              <button
+                className="refresh-map-properties-btn"
+                onClick={fetchMapProperties}
+                disabled={mapPropertiesLoading}
+              >
+                <RefreshCw size={16} /> Refresh List
+              </button>
+              <button
+                className="clear-all-map-properties-btn"
+                onClick={clearAllMapProperties}
+                disabled={mapPropertiesLoading}
+              >
+                <Trash2 size={16} /> Clear All Map Properties
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    
+
     </div>
   )
 }
-

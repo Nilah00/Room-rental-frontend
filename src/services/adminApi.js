@@ -576,4 +576,3 @@ export const purgeAllFeaturedProperties = async () => {
 }
 
 export default adminApi
-

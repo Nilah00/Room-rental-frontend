@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import L from "leaflet"
-import { RefreshCw, AlertCircle } from "lucide-react"
+import { RefreshCw, AlertCircle, Trash2, Eye } from "lucide-react"
 
 // Fix for default marker icon
 delete L.Icon.Default.prototype._getIconUrl
@@ -33,6 +33,7 @@ function RentalMap() {
   const [isLandlord, setIsLandlord] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const mapRef = useRef(null)
+  const [lastRefreshTime, setLastRefreshTime] = useState(Date.now())
 
   // Check if user is a landlord or admin
   useEffect(() => {
@@ -89,7 +90,7 @@ function RentalMap() {
     }
   }
 
-  // Function to fetch properties from localStorage with deletion check
+  // Enhance the fetchPropertiesFromLocalStorage function to be more robust
   const fetchPropertiesFromLocalStorage = () => {
     try {
       // Clear any previous error messages
@@ -103,8 +104,8 @@ function RentalMap() {
         return
       }
 
-      const storedProperties = JSON.parse(storedPropertiesJson)
-      console.log("Retrieved properties from localStorage:", storedProperties)
+      let storedProperties = JSON.parse(storedPropertiesJson)
+      console.log("Retrieved properties from localStorage:", storedProperties.length)
 
       if (!Array.isArray(storedProperties)) {
         console.error("Properties in localStorage is not an array:", storedProperties)
@@ -113,7 +114,18 @@ function RentalMap() {
         return
       }
 
-      // Filter out properties with invalid coordinates
+      // Log all property IDs for debugging
+      storedProperties.forEach((p, index) => {
+        console.log(
+          `Property ${index} in localStorage: ID=${p._id || p.id}, Title=${p.title}, isDeleted=${p.isDeleted}`,
+        )
+      })
+
+      // Filter out properties marked as deleted
+      storedProperties = storedProperties.filter((property) => !property.isDeleted)
+      console.log("After filtering deleted properties:", storedProperties.length)
+
+      // Filter properties with valid coordinates
       const validProperties = storedProperties.filter((property) => {
         // Check coordinates
         const lat = Number(property.latitude)
@@ -122,13 +134,13 @@ function RentalMap() {
 
         if (!hasValidCoords) {
           console.log(`Filtering out property with invalid coordinates: ${property._id || property.id}`)
+          return false
         }
 
-        return hasValidCoords
+        return true
       })
 
-      console.log("Valid properties for map:", validProperties)
-      console.log("Number of valid properties:", validProperties.length)
+      console.log("Valid properties for map:", validProperties.length)
 
       // Ensure each property has a unique ID for React keys
       const propertiesWithUniqueKeys = validProperties.map((property, index) => {
@@ -145,6 +157,9 @@ function RentalMap() {
       if (validProperties.length > 0) {
         setMapCenter([Number(validProperties[0].latitude), Number(validProperties[0].longitude)])
       }
+
+      // Update last refresh time
+      setLastRefreshTime(Date.now())
     } catch (error) {
       console.error("Error fetching properties from localStorage:", error)
       setErrorMessage("Error loading properties: " + error.message)
@@ -156,45 +171,48 @@ function RentalMap() {
     fetchPropertiesFromLocalStorage()
   }, [refreshTrigger])
 
-  // Add this useEffect to listen for property deletion events
+  // Enhance the property deletion event handling to ensure it works with the cascading deletion
   useEffect(() => {
-    // Listen for property deletion events
+    // Function to handle property deletion events
     const handlePropertyDeleted = (event) => {
       const { propertyId } = event.detail
-      console.log(`Property deleted event received for property ${propertyId}`)
+      console.log(`CASCADE DELETE: Property deleted event received for property ${propertyId}`)
 
       // Update the properties state to remove the deleted property
-      setProperties((prevProperties) =>
-        prevProperties.filter((property) => (property._id || property.id) !== propertyId),
-      )
+      setProperties((prevProperties) => {
+        const filtered = prevProperties.filter((property) => {
+          const id = property._id || property.id
+          const keepProperty = id !== propertyId
+          console.log(`Filtering property ${id}: ${keepProperty ? "keeping" : "REMOVING from map"}`)
+          return keepProperty
+        })
+        console.log(`After filtering event: ${filtered.length} properties remain on map`)
+        return filtered
+      })
+
+      // Force a refresh to ensure the map updates
+      console.log("Forcing map refresh after property deletion event")
+      setRefreshTrigger((prev) => prev + 1)
+
+      // Also manually fetch properties from localStorage again
+      console.log("Manually fetching properties from localStorage after deletion event")
+      fetchPropertiesFromLocalStorage()
     }
 
-    // Add event listener
-    window.addEventListener("propertyDeleted", handlePropertyDeleted)
-
-    // Clean up event listener on component unmount
-    return () => {
-      window.removeEventListener("propertyDeleted", handlePropertyDeleted)
-    }
-  }, [])
-
-  // Add this useEffect to listen for storage events and localStorage changes
-
-  // Add this after the other useEffect hooks
-  useEffect(() => {
     // Function to handle storage events (when localStorage changes)
     const handleStorageChange = () => {
       console.log("Storage change detected, refreshing map properties")
       fetchPropertiesFromLocalStorage()
     }
 
-    // Listen for storage events (triggered when localStorage changes in other tabs)
+    // Add event listeners
+    window.addEventListener("propertyDeleted", handlePropertyDeleted)
     window.addEventListener("storage", handleStorageChange)
-
-    // Also listen for our custom storage event (for same-tab updates)
     window.addEventListener("localStorageUpdated", handleStorageChange)
 
+    // Clean up event listeners on component unmount
     return () => {
+      window.removeEventListener("propertyDeleted", handlePropertyDeleted)
       window.removeEventListener("storage", handleStorageChange)
       window.removeEventListener("localStorageUpdated", handleStorageChange)
     }
@@ -218,52 +236,163 @@ function RentalMap() {
       console.log("All properties have been removed from localStorage")
       setProperties([])
       setErrorMessage("All properties have been removed. The map is now empty.")
+
+      // Force a refresh
+      setRefreshTrigger((prev) => prev + 1)
+
+      // Dispatch events to notify other components
+      window.dispatchEvent(new Event("storage"))
+      window.dispatchEvent(new Event("localStorageUpdated"))
     }
   }
 
-  // Function to manually delete a property from the map and localStorage
-  // const deleteProperty = (propertyId) => {
-  //   try {
-  //     // Find the property
-  //     const property = properties.find((p) => (p._id || p.id) === propertyId)
+  // Function to force delete a property from the map and localStorage
+  const deleteProperty = (propertyId) => {
+    try {
+      console.log(`AGGRESSIVE DELETE: Starting deletion for property ID: ${propertyId}`)
 
-  //     // Check if user is authorized to delete this property
-  //     if (!isAdmin && !isLandlord) {
-  //       setErrorMessage("You don't have permission to delete properties.")
-  //       return
-  //     }
+      // Check if user is authorized to delete this property
+      if (!isAdmin && !isLandlord) {
+        setErrorMessage("You don't have permission to delete properties.")
+        return
+      }
 
-  //     // If user is a landlord but not admin, check if they own the property
-  //     if (isLandlord && !isAdmin && !userOwnsProperty(property)) {
-  //       setErrorMessage("You can only delete your own properties.")
-  //       return
-  //     }
+      // DIRECT LOCALSTORAGE MANIPULATION
+      // Get properties from localStorage
+      const storedPropertiesJson = localStorage.getItem("properties")
+      if (!storedPropertiesJson) {
+        console.log("No properties found in localStorage")
+        return
+      }
 
-  //     // Remove from state
-  //     setProperties((prevProperties) =>
-  //       prevProperties.filter((property) => (property._id || property.id) !== propertyId),
-  //     )
+      // Parse the properties
+      const storedProperties = JSON.parse(storedPropertiesJson)
+      console.log(`Found ${storedProperties.length} properties in localStorage before deletion`)
 
-  //     // Remove from localStorage
-  //     const storedPropertiesJson = localStorage.getItem("properties")
-  //     if (storedPropertiesJson) {
-  //       const storedProperties = JSON.parse(storedPropertiesJson)
-  //       const updatedProperties = storedProperties.filter((property) => (property._id || property.id) !== propertyId)
-  //       localStorage.setItem("properties", JSON.stringify(updatedProperties))
-  //       console.log(`Manually removed property ${propertyId} from localStorage`)
-  //     }
+      // Log all property IDs for debugging
+      storedProperties.forEach((p, index) => {
+        console.log(`Property ${index}: ID=${p._id || p.id}, Title=${p.title}`)
+      })
 
-  //     // Dispatch event for other components
-  //     window.dispatchEvent(
-  //       new CustomEvent("propertyDeleted", {
-  //         detail: { propertyId },
-  //       }),
-  //     )
-  //   } catch (error) {
-  //     console.error("Error deleting property:", error)
-  //     setErrorMessage("Error deleting property: " + error.message)
-  //   }
-  // }
+      // Find the property to delete
+      const propertyToDelete = storedProperties.find((p) => {
+        const id = p._id || p.id
+        return id === propertyId
+      })
+
+      if (!propertyToDelete) {
+        console.log(`Property with ID ${propertyId} not found in localStorage`)
+        return
+      }
+
+      console.log(`Found property to delete: ${propertyToDelete.title} (${propertyId})`)
+
+      // AGGRESSIVE DELETE: Completely remove the property from the array
+      const updatedProperties = storedProperties.filter((p) => {
+        const id = p._id || p.id
+        const keepProperty = id !== propertyId
+        console.log(`Property ${id}: ${keepProperty ? "keeping" : "REMOVING"}`)
+        return keepProperty
+      })
+
+      console.log(`After filtering: ${updatedProperties.length} properties remain`)
+
+      // Save the updated array back to localStorage
+      localStorage.setItem("properties", JSON.stringify(updatedProperties))
+      console.log(`Property ${propertyId} removed from localStorage`)
+
+      // Update the UI immediately
+      setProperties((prevProperties) =>
+        prevProperties.filter((property) => {
+          const id = property._id || property.id
+          return id !== propertyId
+        }),
+      )
+
+      // Dispatch events to notify other components
+      console.log(`Dispatching propertyDeleted event for ID: ${propertyId}`)
+      window.dispatchEvent(
+        new CustomEvent("propertyDeleted", {
+          detail: { propertyId },
+        }),
+      )
+
+      // Also dispatch storage events for cross-component communication
+      console.log("Dispatching storage and localStorageUpdated events")
+      window.dispatchEvent(new Event("storage"))
+      window.dispatchEvent(new Event("localStorageUpdated"))
+
+      // Force a refresh after a short delay to ensure events are processed
+      setTimeout(() => {
+        console.log("Forcing delayed refresh")
+        fetchPropertiesFromLocalStorage()
+        setRefreshTrigger((prev) => prev + 1)
+      }, 500)
+
+      console.log(`Property ${propertyId} successfully deleted`)
+    } catch (error) {
+      console.error("Error deleting property:", error)
+      setErrorMessage("Error deleting property: " + error.message)
+    }
+  }
+
+  // Function to clear all properties
+  const clearAllProperties = () => {
+    if (!isAdmin) {
+      setErrorMessage("Only administrators can clear all properties.")
+      return
+    }
+
+    if (window.confirm("This will COMPLETELY REMOVE ALL properties from the map. Continue?")) {
+      try {
+        console.log("AGGRESSIVE CLEAR: Removing all properties from localStorage")
+
+        // Completely remove the properties key from localStorage
+        localStorage.removeItem("properties")
+
+        // Set an empty array as a fallback
+        localStorage.setItem("properties", JSON.stringify([]))
+
+        console.log("All properties have been removed from localStorage")
+
+        // Update UI
+        setProperties([])
+        setErrorMessage("All properties have been cleared. The map is now empty.")
+
+        // Force refresh
+        setRefreshTrigger((prev) => prev + 1)
+
+        // Dispatch events to notify other components
+        window.dispatchEvent(new Event("storage"))
+        window.dispatchEvent(new Event("localStorageUpdated"))
+
+        // Force a refresh after a short delay to ensure events are processed
+        setTimeout(() => {
+          console.log("Forcing delayed refresh after clear")
+          fetchPropertiesFromLocalStorage()
+          setRefreshTrigger((prev) => prev + 1)
+        }, 500)
+      } catch (error) {
+        console.error("Error clearing properties:", error)
+        setErrorMessage("Error clearing properties: " + error.message)
+      }
+    }
+  }
+
+  // Add this function to the component to directly manipulate localStorage
+  // Add this at the end of the component, before the return statement
+  useEffect(() => {
+    // Add a global function to force refresh the map
+    window.forceRefreshMap = () => {
+      console.log("Force refresh map triggered from external source")
+      fetchPropertiesFromLocalStorage()
+      setRefreshTrigger((prev) => prev + 1)
+    }
+
+    return () => {
+      delete window.forceRefreshMap
+    }
+  }, [])
 
   if (properties.length === 0) {
     return (
@@ -273,6 +402,11 @@ function RentalMap() {
             <button onClick={handleRefresh} className="refresh-map-btn">
               <RefreshCw size={16} /> Refresh Map
             </button>
+            {isAdmin && (
+              <button onClick={clearAllProperties} className="admin-btn">
+                <Trash2 size={16} /> Clear All Properties
+              </button>
+            )}
           </div>
         </div>
 
@@ -294,6 +428,11 @@ function RentalMap() {
           <button onClick={handleRefresh} className="refresh-map-btn">
             <RefreshCw size={16} /> Refresh Map
           </button>
+          {isAdmin && (
+            <button onClick={clearAllProperties} className="admin-btn">
+              <Trash2 size={16} /> Clear All Properties
+            </button>
+          )}
         </div>
         <span className="property-count">{properties.length} properties shown on map</span>
       </div>
@@ -310,7 +449,7 @@ function RentalMap() {
           zoom={13}
           style={{ height: "100%", width: "100%" }}
           ref={mapRef}
-          key={`map-container-${refreshTrigger}`}
+          key={`map-container-${refreshTrigger}-${lastRefreshTime}`}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -328,6 +467,7 @@ function RentalMap() {
 
           {properties.map((property, index) => {
             const propertyId = property._id || property.id || `property-${index}`
+
             const lat = Number(property.latitude)
             const lng = Number(property.longitude)
             const canManageProperty = isAdmin || userOwnsProperty(property)
@@ -353,7 +493,7 @@ function RentalMap() {
 
             return (
               <Marker
-                key={`marker-${propertyId}-${index}-${Date.now()}`}
+                key={`marker-${propertyId}-${index}-${lastRefreshTime}`}
                 position={[adjustedLat, adjustedLng]}
                 icon={propertyIcon}
               >
@@ -371,7 +511,17 @@ function RentalMap() {
                     {property.amenities && Array.isArray(property.amenities) && property.amenities.length > 0 && (
                       <p className="popup-amenities">Amenities: {property.amenities.join(", ")}</p>
                     )}
-                    
+
+                    <div className="popup-actions">
+                      <a href={`/room/${propertyId}`} className="map-popup-link">
+                        <Eye size={14} /> View Details
+                      </a>
+                      {canManageProperty && (
+                        <button onClick={() => deleteProperty(propertyId)} className="delete-popup-btn">
+                          <Trash2 size={14} /> Force Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </Popup>
               </Marker>
@@ -388,7 +538,7 @@ function RentalMap() {
           flex-wrap: wrap;
         }
         
-        .refresh-map-btn {
+        .refresh-map-btn, .admin-btn {
           display: flex;
           align-items: center;
           gap: 5px;
@@ -404,6 +554,14 @@ function RentalMap() {
         
         .refresh-map-btn:hover {
           background-color: #3a7bc8;
+        }
+        
+        .admin-btn {
+          background-color: #dc3545;
+        }
+        
+        .admin-btn:hover {
+          background-color: #c82333;
         }
         
         .property-count {
@@ -456,12 +614,15 @@ function RentalMap() {
         
         .popup-actions {
           display: flex;
-          justify-content: center;
+          justify-content: space-between;
           margin-top: 10px;
+          gap: 8px;
         }
         
         .map-popup-link {
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           padding: 5px 10px;
           background-color: #4a90e2;
           color: white;
@@ -475,6 +636,9 @@ function RentalMap() {
         }
         
         .delete-popup-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           padding: 5px 10px;
           background-color: #dc3545;
           color: white;

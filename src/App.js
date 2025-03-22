@@ -14,7 +14,8 @@ import EditProperty from "./components/EditProperty"
 import RoomMap from "./components/RoomMap"
 import AdminDashboard from "./components/dashboard"
 import ProtectedRoute from "./components/ProtectedRoute"
-
+import ManageBookings from "./components/ManageBookings"
+import Notifications from "./components/NotificationSystem"
 function App() {
   return (
     <Router>
@@ -74,6 +75,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        
         <Route
           path="/room/:id"
           element={
@@ -98,6 +100,24 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+<Route
+  path="/manage-bookings"
+  element={
+    <ProtectedRoute requireAdmin={false}>
+      <ManageBookings />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/notification"
+  element={
+    <ProtectedRoute requireAdmin={false}>
+      <Notifications />
+    </ProtectedRoute>
+  }
+/>
+      
 
         {/* Protected admin routes */}
         <Route

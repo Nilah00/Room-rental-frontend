@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
   Star,
@@ -24,10 +24,12 @@ import {
 import "./Home.css"
 import ChatBox from "./ChatBox"
 import RentalMap from "./RentalMap"
+import Notifications from "./NotificationSystem"
 import { getImageUrl, handleImageError } from "./imageUtils"
-import { getFeaturedProperties, getFavorites } from "../services/api"
+import { getFeaturedProperties, getFavorites, getUserNotifications } from "../services/api"
 // Fix the import to only include functions that exist
 import { isAuthenticated, logout } from "../services/auth" // Import validateUserRole
+import { initializeSocket, disconnectSocket } from "../services/socket"
 
 const HomePage = () => {
   const [searchParams, setSearchParams] = useState({
@@ -46,8 +48,12 @@ const HomePage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [mapKey, setMapKey] = useState(Date.now()) // Add a key to force map re-render
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [isLandlord, setIsLandlord] = useState(false)
 
   const navigate = useNavigate()
+  const notificationRef = useRef(null)
 
   // Function to get featured property IDs from localStorage
   const getFeaturedIdsFromLocalStorage = () => {
@@ -84,6 +90,14 @@ const HomePage = () => {
 
           if (user) {
             setUsername(user.name)
+            // Check if user is a landlord
+            setIsLandlord(user.role === "landlord" || user.isLandlord === true)
+
+            // Initialize socket connection for real-time notifications
+            initializeSocket()
+
+            // Fetch notifications count
+            fetchNotificationsCount()
           }
 
           try {
@@ -151,7 +165,43 @@ const HomePage = () => {
 
     // Force map re-render when component mounts
     setMapKey(Date.now())
+
+    // Set up click outside handler for notifications panel
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+
+    // Set up socket event listener for new notifications
+    const handleNewNotification = () => {
+      fetchNotificationsCount()
+    }
+
+    window.addEventListener("newNotification", handleNewNotification)
+
+    // Clean up event listeners and socket connection
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      window.removeEventListener("newNotification", handleNewNotification)
+      disconnectSocket()
+    }
   }, [])
+
+  // Fetch unread notifications count
+  const fetchNotificationsCount = async () => {
+    try {
+      const notifications = await getUserNotifications()
+      const unreadCount = Array.isArray(notifications)
+        ? notifications.filter((notification) => !notification.read).length
+        : 0
+      setUnreadNotifications(unreadCount)
+    } catch (error) {
+      console.error("Error fetching notifications count:", error)
+    }
+  }
 
   useEffect(() => {
     // Load favorites from localStorage when the component mounts
@@ -216,6 +266,10 @@ const HomePage = () => {
     setIsLoggedIn(false)
     setUsername("")
     setFavorites([])
+    setIsLandlord(false)
+
+    // Disconnect socket
+    disconnectSocket()
 
     // Restore properties data for the map
     if (currentProperties) {
@@ -225,7 +279,7 @@ const HomePage = () => {
     // Force map re-render by updating the key
     setMapKey(Date.now())
 
-    navigate("/")
+    // Remove this line: navigate("/")
   }
 
   // Function to refresh featured properties
@@ -269,6 +323,14 @@ const HomePage = () => {
       setError("Failed to refresh featured properties")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const toggleNotifications = () => {
+    setShowNotifications((prev) => !prev)
+    // Reset unread count when opening notifications
+    if (!showNotifications) {
+      setUnreadNotifications(0)
     }
   }
 
@@ -316,12 +378,25 @@ const HomePage = () => {
                   Add Property
                 </Link>
               </li>
+              {isLandlord && (
+                <li>
+                  <Link to="/manage-bookings" className="nav-link">
+                    Booking Requests
+                  </Link>
+                </li>
+              )}
             </ul>
             <div className="nav-actions">
               <div className="nav-icons">
-                <Link to="/notifications" className="icon-link">
-                  <Bell size={20} />
-                </Link>
+                <div className="notification-icon-wrapper" ref={notificationRef}>
+                  <button className="icon-link" onClick={toggleNotifications}>
+                    <Bell size={20} />
+                    {unreadNotifications > 0 && <span className="notification-badge">{unreadNotifications}</span>}
+                  </button>
+                  {showNotifications && (
+                    <Notifications isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
+                  )}
+                </div>
                 <Link to="/messages" className="icon-link">
                   <MessageCircle size={20} />
                 </Link>
@@ -343,6 +418,11 @@ const HomePage = () => {
                       <Link to="/manage-properties" className="dropdown-item">
                         Manage Properties
                       </Link>
+                      {isLandlord && (
+                        <Link to="/manage-bookings" className="dropdown-item">
+                          Booking Requests
+                        </Link>
+                      )}
                       <button onClick={handleLogout} className="dropdown-item">
                         Logout
                       </button>
@@ -440,17 +520,25 @@ const HomePage = () => {
                           ? "available"
                           : listing.status === "Booked"
                             ? "booked"
-                            : listing.status === "Not Available"
-                              ? "not-available"
-                              : listing.status === "Maintenance"
-                                ? "maintenance"
-                                : listing.status === "Reserved"
-                                  ? "reserved"
-                                  : "not-available"
+                            : listing.status === "Pending"
+                              ? "pending"
+                              : listing.status === "Not Available"
+                                ? "not-available"
+                                : listing.status === "Maintenance"
+                                  ? "maintenance"
+                                  : listing.status === "Reserved"
+                                    ? "booked" // Show "Reserved" as "Booked"
+                                    : "not-available"
                       }`}
                     >
                       <Badge size={14} />
-                      <span>{listing.status || "Available"}</span>
+                      <span>
+                        {!listing.status
+                          ? "Available"
+                          : listing.status === "Reserved"
+                            ? "Booked" // Replace "Reserved" with "Booked" in the display text
+                            : listing.status}
+                      </span>
                     </span>
                     <p className="listing-location">{listing.location}</p>
                     <p className="listing-price">Rs {listing.price ? listing.price.toLocaleString() : "0"}/month</p>
@@ -496,11 +584,16 @@ const HomePage = () => {
                         onClick={() => handleBookNow(listing)}
                         disabled={
                           listing.status === "Booked" ||
+                          listing.status === "Reserved" || // Disable for "Reserved" too
                           listing.status === "Not Available" ||
                           listing.status === "Maintenance"
                         }
                       >
-                        {listing.status === "Available" || !listing.status ? "Book Now" : listing.status}
+                        {listing.status === "Available" || !listing.status || listing.status === "Pending"
+                          ? "Book Now"
+                          : listing.status === "Reserved"
+                            ? "Booked" // Show "Booked" instead of "Reserved"
+                            : listing.status}
                       </button>
                       <button
                         className="btn btn-chat"

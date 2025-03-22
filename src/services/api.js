@@ -97,6 +97,32 @@ api.interceptors.response.use(
   },
 )
 
+// Helper function to get the current user ID from the token
+const getCurrentUserId = () => {
+  try {
+    const token = localStorage.getItem("token")
+    if (!token) return null
+
+    // JWT tokens are in the format: header.payload.signature
+    // We need to decode the payload part (the second part)
+    const payload = token.split(".")[1]
+    if (!payload) return null
+
+    // Decode the base64 payload
+    const decodedPayload = JSON.parse(atob(payload))
+    return decodedPayload.id || decodedPayload.userId || decodedPayload.sub
+  } catch (error) {
+    console.error("Error getting user ID from token:", error)
+    return null
+  }
+}
+
+// Helper function to get user-specific localStorage key
+const getUserStorageKey = (key) => {
+  const userId = getCurrentUserId()
+  return userId ? `${key}_${userId}` : key
+}
+
 // Property-related API calls
 export const getFeaturedProperties = () => {
   console.log("Fetching featured properties")
@@ -172,6 +198,192 @@ export const getPropertyById = async (id) => {
     } else {
       console.error("Error message:", error.message)
     }
+    throw error
+  }
+}
+
+// Add this new function for submitting booking requests
+export const submitBookingRequest = async (bookingData) => {
+  console.log("Submitting booking request:", bookingData)
+  try {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      throw new Error("Authentication required. Please log in to book a property.")
+    }
+
+    const response = await api.post("/bookings", bookingData)
+    console.log("Booking response:", response)
+
+    // After successful booking request, update the property status in localStorage
+    try {
+      const propertiesJson = localStorage.getItem("properties")
+      if (propertiesJson) {
+        const properties = JSON.parse(propertiesJson)
+        const updatedProperties = properties.map((property) => {
+          if ((property._id || property.id) === bookingData.propertyId) {
+            return { ...property, status: "Pending" }
+          }
+          return property
+        })
+        localStorage.setItem("properties", JSON.stringify(updatedProperties))
+      }
+    } catch (localStorageError) {
+      console.error("Error updating property status in localStorage:", localStorageError)
+    }
+
+    return response.data
+  } catch (error) {
+    console.error("Error submitting booking request:", error)
+
+    if (error.response) {
+      // The server responded with an error status
+      console.error("Server error response:", error.response.data)
+      throw new Error(error.response.data.message || "Server error occurred")
+    } else if (error.request) {
+      // The request was made but no response received
+      console.error("No response received:", error.request)
+      throw new Error("No response from server. Please check your connection.")
+    } else {
+      // Something else went wrong
+      console.error("Error message:", error.message)
+      throw new Error(error.message || "An unexpected error occurred")
+    }
+  }
+}
+
+// Add this new function for getting user notifications
+export const getUserNotifications = async () => {
+  console.log("Fetching user notifications")
+  try {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      console.log("No token found, returning empty notifications")
+      return []
+    }
+
+    // Get the user ID
+    const userId = getCurrentUserId()
+    console.log("Current user ID:", userId)
+
+    if (!userId) {
+      console.log("Could not determine user ID, returning all notifications")
+      const response = await api.get("/notifications")
+      return Array.isArray(response.data)
+        ? response.data
+        : response.data && Array.isArray(response.data.data)
+          ? response.data.data
+          : []
+    }
+
+    // Get the timestamp of when notifications were last cleared for this specific user
+    const clearedTimestampKey = getUserStorageKey("notificationsClearedAt")
+    const clearedTimestamp = localStorage.getItem(clearedTimestampKey)
+    console.log(`Cleared timestamp for user ${userId}:`, clearedTimestamp)
+
+    const response = await api.get("/notifications")
+    console.log("Notifications response:", response)
+
+    let data = Array.isArray(response.data)
+      ? response.data
+      : response.data && Array.isArray(response.data.data)
+        ? response.data.data
+        : []
+
+    // Filter out notifications created before the cleared timestamp
+    if (clearedTimestamp) {
+      const clearedTime = Number.parseInt(clearedTimestamp, 10)
+      console.log("Filtering notifications created before:", new Date(clearedTime).toISOString())
+
+      data = data.filter((notification) => {
+        const notificationTime = new Date(notification.createdAt).getTime()
+        return notificationTime > clearedTime
+      })
+
+      console.log("Filtered notifications count:", data.length)
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error fetching notifications:", error)
+    // Return empty array instead of throwing error
+    return []
+  }
+}
+
+// Add this new function for marking notifications as read
+export const markNotificationAsRead = async (notificationId) => {
+  console.log(`Marking notification ${notificationId} as read`)
+  try {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      throw new Error("Authentication required")
+    }
+
+    const response = await api.patch(`/notifications/${notificationId}/read`)
+    console.log("Mark notification as read response:", response)
+    return response.data
+  } catch (error) {
+    console.error("Error marking notification as read:", error)
+    throw error
+  }
+}
+
+// Add this new function for getting booking requests for a landlord
+export const getLandlordBookingRequests = async () => {
+  console.log("Fetching landlord booking requests")
+  try {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      console.log("No token found, returning empty booking requests")
+      return { data: [] }
+    }
+
+    const response = await api.get("/bookings/landlord")
+    console.log("Landlord booking requests response:", response)
+    return response.data
+  } catch (error) {
+    console.error("Error fetching landlord booking requests:", error)
+    // Return empty array instead of throwing error
+    return []
+  }
+}
+
+// Add this function to handle booking status updates that also update property status
+export const updateBookingStatus = async (bookingId, statusData) => {
+  console.log(`Updating booking ${bookingId} status to:`, statusData)
+  try {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      throw new Error("Authentication required")
+    }
+
+    // Make a direct axios call to ensure proper headers
+    const response = await axios({
+      method: "patch",
+      url: `${API_URL}/bookings/${bookingId}/status`,
+      data: statusData,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    console.log("Update booking status response:", response)
+
+    // If the booking was approved, update the property status to "Booked"
+    if (statusData.status === "approved" && response.data && response.data.property) {
+      try {
+        const propertyId = response.data.property._id || response.data.propertyId
+        await updatePropertyStatus(propertyId, { status: "Booked" })
+        console.log(`Property ${propertyId} status updated to Booked`)
+      } catch (propertyError) {
+        console.error("Error updating property status:", propertyError)
+      }
+    }
+
+    return response.data
+  } catch (error) {
+    console.error("Error updating booking status:", error)
     throw error
   }
 }
@@ -356,6 +568,13 @@ export const login = async (credentials) => {
       if (response.data.refreshToken) {
         localStorage.setItem("refreshToken", response.data.refreshToken)
       }
+
+      // Clear any previous user-specific data when logging in as a new user
+      const userId = getCurrentUserId()
+      if (userId) {
+        // We don't want to clear everything, just make sure we're not using another user's settings
+        console.log("Logged in as user:", userId)
+      }
     }
 
     return response
@@ -490,6 +709,148 @@ export const refreshToken = async () => {
     // Clear tokens on refresh failure
     localStorage.removeItem("token")
     localStorage.removeItem("refreshToken")
+    throw error
+  }
+}
+
+const getToken = () => {
+  return localStorage.getItem("token")
+}
+
+// Create a booking request
+export const createBooking = async (bookingData) => {
+  try {
+    const response = await fetch(`${API_URL}/api/bookings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify(bookingData),
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to create booking")
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error creating booking:", error)
+    throw error
+  }
+}
+
+// Get bookings for landlord
+export const getLandlordBookings = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/bookings/landlord`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to fetch landlord bookings")
+    }
+
+    return data.data
+  } catch (error) {
+    console.error("Error fetching landlord bookings:", error)
+    throw error
+  }
+}
+
+// Get bookings for tenant
+export const getTenantBookings = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/bookings/tenant`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to fetch tenant bookings")
+    }
+
+    return data.data
+  } catch (error) {
+    console.error("Error fetching tenant bookings:", error)
+    throw error
+  }
+}
+
+// Update booking status
+export const updateBookingStatusNew = async (bookingId, status) => {
+  try {
+    const response = await fetch(`${API_URL}/api/bookings/${bookingId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ status }),
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to update booking status")
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error updating booking status:", error)
+    throw error
+  }
+}
+
+// Cancel booking
+export const cancelBooking = async (bookingId) => {
+  try {
+    const response = await fetch(`${API_URL}/api/bookings/${bookingId}/cancel`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to cancel booking")
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error cancelling booking:", error)
+    throw error
+  }
+}
+
+// Add a new function to clear all notifications
+export const clearAllNotifications = async () => {
+  try {
+    // Get the current user ID
+    const userId = getCurrentUserId()
+    if (!userId) {
+      console.error("Cannot clear notifications: User ID not found")
+      return { success: false, message: "User ID not found" }
+    }
+
+    // Store the current timestamp when notifications were cleared for this specific user
+    const currentTimestamp = Date.now()
+    const storageKey = getUserStorageKey("notificationsClearedAt")
+
+    localStorage.setItem(storageKey, currentTimestamp.toString())
+    console.log(`Set ${storageKey} to:`, currentTimestamp, new Date(currentTimestamp).toISOString())
+
+    return { success: true, message: "All notifications cleared" }
+  } catch (error) {
+    console.error("Error clearing all notifications:", error)
     throw error
   }
 }

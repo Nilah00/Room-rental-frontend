@@ -1,131 +1,222 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell } from 'lucide-react'
-import { initializeApp } from "firebase/app"
-import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore"
-import { getMessaging, getToken, onMessage } from "firebase/messaging"
+import { Bell, Check, Clock, X, AlertCircle, Trash2 } from "lucide-react"
+import { getUserNotifications, markNotificationAsRead, clearAllNotifications } from "../services/api"
+import { useNavigate } from "react-router-dom"
+import "./Notifications.css"
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-};
-
-
-let app;
-let db;
-let messaging;
-
-try {
-  app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  
-  // Only initialize messaging if we're in a browser environment that supports it
-  if (typeof window !== 'undefined' && 'Notification' in window) {
-    messaging = getMessaging(app);
-  }
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-}
-
-const NotificationSystem = () => {
+export default function Notifications({ onClose, isOpen }) {
   const [notifications, setNotifications] = useState([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [showNotifications, setShowNotifications] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [clearingAll, setClearingAll] = useState(false)
+  const [error, setError] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
+  const navigate = useNavigate()
 
+  // Get current user from token when component mounts
   useEffect(() => {
-    if (!db) {
-      console.error('Firestore is not initialized');
-      return;
-    }
+    const getCurrentUser = () => {
+      try {
+        const token = localStorage.getItem("token")
+        if (!token) return null
 
-    const userId = "current-user-id" // Replace with actual user ID logic
+        const payload = token.split(".")[1]
+        if (!payload) return null
 
-    const q = query(collection(db, "notifications"), where("userId", "==", userId), orderBy("timestamp", "desc"))
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newNotifications = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-      setNotifications(newNotifications)
-      setUnreadCount(newNotifications.filter((n) => !n.read).length)
-    })
-
-    if (messaging) {
-      getToken(messaging).then((token) => {
-        if (token) {
-          updateDoc(doc(db, "users", userId), { fcmToken: token })
+        const decodedPayload = JSON.parse(atob(payload))
+        return {
+          id: decodedPayload.id || decodedPayload.userId || decodedPayload.sub,
+          email: decodedPayload.email,
+          name: decodedPayload.name,
         }
-      }).catch((error) => {
-        console.error('Error getting messaging token:', error);
-      });
-
-      const messageHandler = onMessage(messaging, (payload) => {
-        const notification = {
-          id: Date.now().toString(),
-          message: payload.notification?.body || "",
-          read: false,
-          timestamp: new Date(),
-        }
-        setNotifications((prev) => [notification, ...prev])
-        setUnreadCount((prev) => prev + 1)
-      })
-
-      return () => {
-        unsubscribe()
-        if (messageHandler) messageHandler()
-      }
-    } else {
-      return () => {
-        unsubscribe()
+      } catch (error) {
+        console.error("Error getting user from token:", error)
+        return null
       }
     }
+
+    setCurrentUser(getCurrentUser())
   }, [])
 
-  const markAsRead = (notificationId) => {
-    if (db) {
-      updateDoc(doc(db, "notifications", notificationId), { read: true })
+  useEffect(() => {
+    if (isOpen) {
+      fetchNotifications()
+    }
+  }, [isOpen, currentUser])
+
+  // Update the fetchNotifications function to log more details
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      console.log("Fetching notifications for user:", currentUser?.id)
+      const data = await getUserNotifications()
+      console.log("Received notifications:", data)
+      setNotifications(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error("Error fetching notifications:", err)
+      setError("Failed to load notifications")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const toggleNotifications = () => {
-    setShowNotifications(!showNotifications)
-    if (!showNotifications) {
-      setUnreadCount(0)
-      notifications.forEach((n) => {
-        if (!n.read) markAsRead(n.id)
-      })
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await markNotificationAsRead(notificationId)
+      // Update local state
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((notification) =>
+          notification._id === notificationId ? { ...notification, read: true } : notification,
+        ),
+      )
+    } catch (err) {
+      console.error("Error marking notification as read:", err)
     }
   }
+
+  // Update the handleClearAllNotifications function
+  const handleClearAllNotifications = async () => {
+    try {
+      setClearingAll(true)
+
+      if (!currentUser?.id) {
+        console.error("Cannot clear notifications: User not logged in")
+        setError("You must be logged in to clear notifications")
+        return
+      }
+
+      console.log("Clearing notifications for user:", currentUser.id)
+
+      // Call the clearAllNotifications function from api.js
+      const result = await clearAllNotifications()
+      console.log("Notifications cleared result:", result)
+
+      // Update UI immediately
+      setNotifications([])
+
+      // Dispatch event to update notification count in other components
+      window.dispatchEvent(new CustomEvent("notificationsCleared"))
+    } catch (error) {
+      console.error("Error clearing all notifications:", error)
+    } finally {
+      setClearingAll(false)
+    }
+  }
+
+  const handleNotificationClick = (notification) => {
+    // Mark as read
+    if (!notification.read) {
+      handleMarkAsRead(notification._id)
+    }
+
+    // Navigate based on notification type
+    if (notification.type === "booking_request") {
+      navigate(`/manage-bookings`)
+    } else if (notification.type === "booking_status_update") {
+      navigate(`/bookings`)
+    } else if (notification.type === "property_update" && notification.propertyId) {
+      navigate(`/room/${notification.propertyId}`)
+    }
+
+    // Close notifications panel
+    onClose()
+  }
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case "booking_request":
+        return <Clock size={18} className="notification-icon booking" />
+      case "booking_status_update":
+        return <Check size={18} className="notification-icon status" />
+      case "property_update":
+        return <Bell size={18} className="notification-icon property" />
+      default:
+        return <Bell size={18} className="notification-icon" />
+    }
+  }
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffMs = now - date
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMins < 1) return "Just now"
+    if (diffMins < 60) return `${diffMins} min ago`
+    if (diffHours < 24) return `${diffHours} hr ago`
+    if (diffDays < 7) return `${diffDays} day ago`
+
+    return date.toLocaleDateString()
+  }
+
+  if (!isOpen) return null
 
   return (
-    <div className="notification-system">
-      <button onClick={toggleNotifications} className="notification-icon">
-        <Bell size={20} />
-        {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-      </button>
-      {showNotifications && (
-        <div className="notification-dropdown">
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
-              <div key={notification.id} className={`notification-item ${!notification.read ? "unread" : ""}`}>
-                <p>{notification.message}</p>
-                <small>{notification.timestamp.toDate().toLocaleString()}</small>
-              </div>
-            ))
-          ) : (
-            <p>No notifications</p>
+    <div className="notifications-panel">
+      <div className="notifications-header">
+        <h3>Notifications {currentUser?.name ? `for ${currentUser.name}` : ""}</h3>
+        <div className="notifications-actions">
+          {notifications.length > 0 && (
+            <button className="clear-all-button" onClick={handleClearAllNotifications} disabled={clearingAll}>
+              <Trash2 size={16} />
+              {clearingAll ? "Clearing..." : "Clear All"}
+            </button>
           )}
+          <button className="close-button" onClick={onClose}>
+            <X size={18} />
+          </button>
         </div>
-      )}
+      </div>
+
+      <div className="notifications-content">
+        {loading ? (
+          <div className="notifications-loading">Loading notifications...</div>
+        ) : error ? (
+          <div className="notifications-error">
+            <AlertCircle size={18} />
+            <span>{error}</span>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="notifications-empty">
+            <Bell size={24} />
+            <p>No notifications yet</p>
+          </div>
+        ) : (
+          <ul className="notifications-list">
+            {notifications.map((notification) => (
+              <li
+                key={notification._id}
+                className={`notification-item ${notification.read ? "read" : "unread"}`}
+                onClick={() => handleNotificationClick(notification)}
+              >
+                <div className="notification-content">
+                  {getNotificationIcon(notification.type)}
+                  <div className="notification-text">
+                    <p className="notification-message">{notification.message}</p>
+                    <span className="notification-time">{formatTimestamp(notification.createdAt)}</span>
+                  </div>
+                </div>
+                {!notification.read && (
+                  <button
+                    className="mark-read-button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleMarkAsRead(notification._id)
+                    }}
+                  >
+                    <Check size={14} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }
 
-export default NotificationSystem

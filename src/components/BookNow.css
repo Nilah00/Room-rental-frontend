@@ -189,6 +189,152 @@
   background-color: #4338CA;
 }
 
+/* Add these styles to your existing BookNow.css file */
+
+.form-error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.success-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 16px;
+  background-color: #ecfdf5;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.success-message h3 {
+  margin: 16px 0 8px;
+  color: #065f46;
+  font-size: 1.5rem;
+}
+
+.success-message p {
+  color: #047857;
+  margin-bottom: 16px;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.2rem;
+  color: #4f46e5;
+}
+
+.error-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 16px;
+  background-color: #fee2e2;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.error-message p {
+  margin: 16px 0;
+  color: #b91c1c;
+}
+
+.book-now-submit-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.book-now-input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+/* Add these styles to your existing BookNow.css file */
+
+.form-error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.success-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 16px;
+  background-color: #ecfdf5;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.success-message h3 {
+  margin: 16px 0 8px;
+  color: #065f46;
+  font-size: 1.5rem;
+}
+
+.success-message p {
+  color: #047857;
+  margin-bottom: 16px;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.2rem;
+  color: #4f46e5;
+}
+
+.error-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 16px;
+  background-color: #fee2e2;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.error-message p {
+  margin: 16px 0;
+  color: #b91c1c;
+}
+
+.book-now-submit-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.book-now-input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+
+
+
 @media (max-width: 768px) {
   .book-now-room-details {
     flex-direction: column;
