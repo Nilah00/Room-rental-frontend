@@ -16,25 +16,20 @@ import AdminDashboard from "./components/dashboard"
 import ProtectedRoute from "./components/ProtectedRoute"
 import ManageBookings from "./components/ManageBookings"
 import Notifications from "./components/NotificationSystem"
+
 function App() {
   return (
     <Router>
       <Routes>
         {/* Public routes */}
+        <Route path="/" element={<Home />} /> {/* Make homepage public */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
-
+        <Route path="/rooms" element={<ViewAllRooms />} /> {/* Make rooms page public */}
+        <Route path="/room/:id" element={<RoomDetail />} /> {/* Make room detail page public */}
         {/* Protected user routes */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute requireAdmin={false}>
-              <Home />
-            </ProtectedRoute>
-          }
-        />
         <Route
           path="/add-property"
           element={
@@ -48,14 +43,6 @@ function App() {
           element={
             <ProtectedRoute requireAdmin={false}>
               <BookNow />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/rooms"
-          element={
-            <ProtectedRoute requireAdmin={false}>
-              <ViewAllRooms />
             </ProtectedRoute>
           }
         />
@@ -75,15 +62,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
-        <Route
-          path="/room/:id"
-          element={
-            <ProtectedRoute requireAdmin={false}>
-              <RoomDetail />
-            </ProtectedRoute>
-          }
-        />
         <Route
           path="/edit-property/:id"
           element={
@@ -100,25 +78,22 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-<Route
-  path="/manage-bookings"
-  element={
-    <ProtectedRoute requireAdmin={false}>
-      <ManageBookings />
-    </ProtectedRoute>
-  }
-/>
-<Route
-  path="/notification"
-  element={
-    <ProtectedRoute requireAdmin={false}>
-      <Notifications />
-    </ProtectedRoute>
-  }
-/>
-      
-
+        <Route
+          path="/manage-bookings"
+          element={
+            <ProtectedRoute requireAdmin={false}>
+              <ManageBookings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notification"
+          element={
+            <ProtectedRoute requireAdmin={false}>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
         {/* Protected admin routes */}
         <Route
           path="/dashboard"

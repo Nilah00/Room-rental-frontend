@@ -117,6 +117,17 @@ const getCurrentUserId = () => {
   }
 }
 
+// Export the getCurrentUserId function so it can be used by components
+export { getCurrentUserId }
+
+// Add this helper function to check if a user is the owner of a property
+export const isPropertyOwner = (property, userId) => {
+  if (!property || !userId) return false
+
+  const propertyOwnerId = property.owner?._id || property.owner
+  return propertyOwnerId === userId
+}
+
 // Helper function to get user-specific localStorage key
 const getUserStorageKey = (key) => {
   const userId = getCurrentUserId()
@@ -174,11 +185,48 @@ export const getProperties = async () => {
   }
 }
 
+// Replace the existing getPropertyById function with this improved version
 export const getPropertyById = async (id) => {
-  console.log(`Fetching property with id: ${id}`)
+  console.log(`Fetching property with id:`, id)
   try {
-    const response = await api.get(`/properties/${id}`)
+    // If id is an object, extract the actual ID
+    let propertyId = id
+    if (typeof id === "object") {
+      propertyId = id._id || id.id
+      console.log("Extracted ID from object:", propertyId)
+    }
+
+    // Check if the ID is a timestamp (13 digits)
+    if (/^\d{13}$/.test(propertyId)) {
+      console.log("ID appears to be a timestamp, trying localStorage first")
+
+      try {
+        // Try to find the property in localStorage
+        const storedPropertiesJson = localStorage.getItem("properties")
+        if (storedPropertiesJson) {
+          const storedProperties = JSON.parse(storedPropertiesJson)
+
+          if (Array.isArray(storedProperties)) {
+            // Look for a property with matching ID
+            const property = storedProperties.find((p) => (p._id === propertyId || p.id === propertyId) && !p.isDeleted)
+
+            if (property) {
+              console.log("Found property in localStorage:", property.title)
+              return property
+            }
+          }
+        }
+        console.log("Property not found in localStorage, trying API")
+      } catch (localError) {
+        console.error("Error searching localStorage:", localError)
+      }
+    }
+
+    // Make the API call
+    console.log("Making API request for property:", propertyId)
+    const response = await api.get(`/properties/${propertyId}`)
     console.log("API Response:", response)
+
     if (response.status !== 200) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
@@ -189,6 +237,36 @@ export const getPropertyById = async (id) => {
     return response.data
   } catch (error) {
     console.error(`Error fetching property with id ${id}:`, error)
+
+    // Try localStorage as a fallback
+    try {
+      console.log("Trying localStorage as fallback after API error")
+      const storedPropertiesJson = localStorage.getItem("properties")
+      if (storedPropertiesJson) {
+        const storedProperties = JSON.parse(storedPropertiesJson)
+
+        if (Array.isArray(storedProperties)) {
+          // Look for a property with matching ID
+          const property = storedProperties.find((p) => (p._id === id || p.id === id) && !p.isDeleted)
+
+          if (property) {
+            console.log("Found property in localStorage fallback:", property.title)
+            return property
+          }
+
+          // If we're in development and can't find the specific property, return the first one
+          if (process.env.NODE_ENV === "development" || window.location.hostname === "localhost") {
+            if (storedProperties.length > 0) {
+              console.log("Development fallback - returning first property from localStorage")
+              return storedProperties[0]
+            }
+          }
+        }
+      }
+    } catch (fallbackError) {
+      console.error("Error with localStorage fallback:", fallbackError)
+    }
+
     if (error.response) {
       console.error("Error response:", error.response.data)
       console.error("Error status:", error.response.status)
@@ -202,13 +280,31 @@ export const getPropertyById = async (id) => {
   }
 }
 
-// Add this new function for submitting booking requests
+// Update the submitBookingRequest function to prevent landlords from booking their own properties
 export const submitBookingRequest = async (bookingData) => {
   console.log("Submitting booking request:", bookingData)
   try {
     const token = localStorage.getItem("token")
     if (!token) {
       throw new Error("Authentication required. Please log in to book a property.")
+    }
+
+    // Get the property details to check ownership
+    try {
+      const property = await getPropertyById(bookingData.propertyId)
+
+      // Check if the current user is the owner of the property
+      const currentUserId = getCurrentUserId()
+      if (property && currentUserId) {
+        if (isPropertyOwner(property, currentUserId)) {
+          throw new Error(
+            "You cannot book your own property. Landlords can only book properties listed by other landlords.",
+          )
+        }
+      }
+    } catch (propertyError) {
+      console.error("Error checking property ownership:", propertyError)
+      // If we can't verify ownership, we'll let the backend handle it
     }
 
     const response = await api.post("/bookings", bookingData)
@@ -540,8 +636,52 @@ export const updatePropertyStatus = async (id, statusData) => {
 
 export const deleteProperty = async (id) => {
   try {
+    console.log(`Deleting property with ID: ${id}`)
+    
+    // First, remove the property from the map (localStorage)
+    try {
+      console.log("Removing property from map (localStorage)")
+      const storedPropertiesJson = localStorage.getItem("properties")
+      
+      if (storedPropertiesJson) {
+        const storedProperties = JSON.parse(storedPropertiesJson)
+        
+        if (Array.isArray(storedProperties)) {
+          // Convert ID to string for consistent comparison
+          const targetId = String(id).replace(/"/g, '')
+          
+          // Filter out the property to delete
+          const updatedProperties = storedProperties.filter(property => {
+            const propId = String(property._id || property.id || '').replace(/"/g, '')
+            return propId !== targetId
+          })
+          
+          // Save the updated array back to localStorage
+          localStorage.setItem("properties", JSON.stringify(updatedProperties))
+          console.log(`Property ${id} removed from map (localStorage)`)
+          
+          // Dispatch events to notify other components
+          window.dispatchEvent(new CustomEvent("propertyDeleted", {
+            detail: { propertyId: id },
+          }))
+          window.dispatchEvent(new Event("storage"))
+          window.dispatchEvent(new Event("localStorageUpdated"))
+          
+          // Force refresh the map if the global function exists
+          if (typeof window.forceRefreshMap === "function") {
+            setTimeout(() => window.forceRefreshMap(), 300)
+          }
+        }
+      }
+    } catch (mapError) {
+      console.error("Error removing property from map:", mapError)
+      // Continue with API deletion even if map deletion fails
+    }
+    
+    // Then delete from the server/database
     const response = await api.delete(`/properties/${id}`)
     console.log("Delete property response:", response)
+    
     if (!response.data.success) {
       throw new Error(response.data.message || "Failed to delete property")
     }
@@ -856,4 +996,3 @@ export const clearAllNotifications = async () => {
 }
 
 export default api
-

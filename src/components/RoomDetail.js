@@ -17,6 +17,7 @@ const RoomDetail = () => {
   const [showChat, setShowChat] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [favorites, setFavorites] = useState([])
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const { id } = useParams()
   const navigate = useNavigate()
 
@@ -155,6 +156,19 @@ const RoomDetail = () => {
     setShowChat(true)
   }
 
+  // Image slider navigation
+  const goToPreviousImage = () => {
+    if (room?.images?.length > 0) {
+      setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? room.images.length - 1 : prevIndex - 1))
+    }
+  }
+
+  const goToNextImage = () => {
+    if (room?.images?.length > 0) {
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % room.images.length)
+    }
+  }
+
   if (isLoading) return <div className="loading">Loading room details...</div>
   if (error) return <div className="error">{error}</div>
   if (!room) return <div className="not-found">Room not found</div>
@@ -176,27 +190,59 @@ const RoomDetail = () => {
         </div>
 
         <div className="room-detail-content">
-          <div className="room-images">
-            {room.images && room.images.length > 0 ? (
-              room.images.map((image, index) => (
-                <img
-                  key={index}
-                  src={getImageUrl(image) || "/placeholder.svg"}
-                  alt={`${room.title} - ${index + 1}`}
-                  className="room-image"
-                  onError={handleImageError}
-                />
-              ))
-            ) : (
-              <img src="/placeholder.svg" alt="No available" className="room-image" />
+          <div className="room-main-content">
+            {/* Image Slider */}
+            <div className="room-images-slider">
+              {room.images && room.images.length > 0 ? (
+                <>
+                  <div className="slider-container">
+                    <img
+                      src={getImageUrl(room.images[currentImageIndex]) || "/placeholder.svg"}
+                      alt={`${room.title} - ${currentImageIndex + 1}`}
+                      className="room-image"
+                      onError={handleImageError}
+                    />
+
+                    {/* Navigation arrows - only show if more than one image */}
+                    {room.images.length > 1 && (
+                      <>
+                        <button className="slider-nav prev" onClick={goToPreviousImage} aria-label="Previous image">
+                          &lt;
+                        </button>
+                        <button className="slider-nav next" onClick={goToNextImage} aria-label="Next image">
+                          &gt;
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Image indicators - only show if more than one image */}
+                  {room.images.length > 1 && (
+                    <div className="slider-indicators">
+                      {room.images.map((_, index) => (
+                        <button
+                          key={index}
+                          className={`indicator ${index === currentImageIndex ? "active" : ""}`}
+                          onClick={() => setCurrentImageIndex(index)}
+                          aria-label={`Go to image ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <img src="/placeholder.svg" alt="No available" className="room-image" />
+              )}
+            </div>
+
+            {room.video && (
+              <div className="room-video">
+                <h3>Property Video</h3>
+                <video src={getImageUrl(room.video)} controls width="100%" />
+              </div>
             )}
           </div>
-          {room.video && (
-            <div className="room-video">
-              <h3>Property Video</h3>
-              <video src={getImageUrl(room.video)} controls width="100%" />
-            </div>
-          )}
+
           <div className="room-info">
             <p className="room-location">
               <MapPin size={20} />

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
-import { Home, AlertCircle, CheckCircle } from "lucide-react"
-import { getPropertyById, submitBookingRequest } from "../services/api"
+import { Home, AlertCircle, CheckCircle, Info } from "lucide-react"
+import { getPropertyById, submitBookingRequest, getCurrentUserId, isPropertyOwner } from "../services/api"
 import "./BookNow.css"
 
 export default function BookNow() {
@@ -14,6 +14,7 @@ export default function BookNow() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
   const [bookingData, setBookingData] = useState({
     name: "",
     email: "",
@@ -29,6 +30,17 @@ export default function BookNow() {
       try {
         const data = await getPropertyById(id)
         setRoomDetails(data)
+
+        // Check if current user is the owner
+        const currentUserId = getCurrentUserId()
+        if (currentUserId && data) {
+          const ownerCheck = isPropertyOwner(data, currentUserId)
+          setIsOwner(ownerCheck)
+
+          if (ownerCheck) {
+            setError("You cannot book your own property. Landlords can only book properties listed by other landlords.")
+          }
+        }
       } catch (error) {
         console.error("Error fetching room details:", error)
         setError("Failed to load property details. Please try again.")
@@ -51,6 +63,13 @@ export default function BookNow() {
     setError(null)
 
     try {
+      // Check if user is the owner
+      if (isOwner) {
+        throw new Error(
+          "You cannot book your own property. Landlords can only book properties listed by other landlords.",
+        )
+      }
+
       // Validate form data
       if (!bookingData.name || !bookingData.email || !bookingData.phone || !bookingData.moveInDate) {
         throw new Error("Please fill in all required fields")
@@ -135,7 +154,16 @@ export default function BookNow() {
           </Link>
         </header>
         <main className="book-now-content">
-          {success ? (
+          {isOwner ? (
+            <div className="owner-message">
+              <Info size={48} color="#f59e0b" />
+              <h3>You Own This Property</h3>
+              <p>You cannot book your own property.</p>
+              <Link to="/properties" className="book-now-back-button">
+                View Your Properties
+              </Link>
+            </div>
+          ) : success ? (
             <div className="success-message">
               <CheckCircle size={48} color="#10b981" />
               <h3>Booking Request Submitted!</h3>
@@ -220,24 +248,7 @@ export default function BookNow() {
                 />
               </div>
 
-              <div className="book-now-form-group">
-                <label htmlFor="leaseDuration" className="book-now-label">
-                  Lease Duration (in months)
-                </label>
-                <select
-                  id="leaseDuration"
-                  name="leaseDuration"
-                  value={bookingData.leaseDuration}
-                  onChange={handleInputChange}
-                  className="book-now-input"
-                  disabled={submitting}
-                >
-                  <option value="3">3 months</option>
-                  <option value="6">6 months</option>
-                  <option value="12">12 months</option>
-                </select>
-              </div>
-
+              
               <div className="book-now-form-group">
                 <label htmlFor="familyMembers" className="book-now-label">
                   Number of Family Members
@@ -271,7 +282,7 @@ export default function BookNow() {
                 />
               </div>
 
-              <button type="submit" className="book-now-submit-button" disabled={submitting}>
+              <button type="submit" className="book-now-submit-button" disabled={submitting || isOwner}>
                 {submitting ? "Submitting..." : "Submit Booking Request"}
               </button>
             </form>

@@ -20,6 +20,8 @@ import {
   Droplet,
   Snowflake,
   Badge,
+  Bed,
+  Bath,
 } from "lucide-react"
 import "./Home.css"
 import ChatBox from "./ChatBox"
@@ -41,6 +43,7 @@ const HomePage = () => {
   const [favorites, setFavorites] = useState([])
   const [showChat, setShowChat] = useState(false)
   const [currentLandlord, setCurrentLandlord] = useState("")
+  const [currentLandlordId, setCurrentLandlordId] = useState("") // Add state for landlord ID
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [username, setUsername] = useState("")
@@ -51,6 +54,7 @@ const HomePage = () => {
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [isLandlord, setIsLandlord] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState("") // Add state for current user ID
 
   const navigate = useNavigate()
   const notificationRef = useRef(null)
@@ -90,6 +94,8 @@ const HomePage = () => {
 
           if (user) {
             setUsername(user.name)
+            // Store the current user ID
+            setCurrentUserId(user.id || user._id)
             // Check if user is a landlord
             setIsLandlord(user.role === "landlord" || user.isLandlord === true)
 
@@ -248,12 +254,22 @@ const HomePage = () => {
     navigate(`/booknow/${listing._id}`, { state: { roomDetails: listing } })
   }
 
-  const handleChatWithLandlord = (landlordName) => {
+  // Updated function to check if user is the property owner
+  const handleChatWithLandlord = (landlordName, landlordId) => {
     if (!isLoggedIn) {
       navigate("/login")
       return
     }
+
+    // Check if current user is the landlord
+    if (currentUserId === landlordId) {
+      // Use regular alert since ErrorModal is not available
+      alert("You cannot chat with yourself as this is your own property.")
+      return
+    }
+
     setCurrentLandlord(landlordName)
+    setCurrentLandlordId(landlordId) // Store the landlord ID
     setShowChat(true)
   }
 
@@ -267,6 +283,7 @@ const HomePage = () => {
     setUsername("")
     setFavorites([])
     setIsLandlord(false)
+    setCurrentUserId("") // Clear current user ID
 
     // Disconnect socket
     disconnectSocket()
@@ -544,6 +561,21 @@ const HomePage = () => {
                     <p className="listing-price">Rs {listing.price ? listing.price.toLocaleString() : "0"}/month</p>
                     <p className="furnished-status">{listing.furnished ? "Furnished" : "Unfurnished"}</p>
                     <div className="amenities">
+                      {/* Bed and Bath information */}
+                      <div className="amenity">
+                        <Bed size={16} />
+                        <span>
+                          {listing.bedrooms || 0} {listing.bedrooms === 1 || listing.bedrooms === "1" ? "bed" : "beds"}
+                        </span>
+                      </div>
+                      <div className="amenity">
+                        <Bath size={16} />
+                        <span>
+                          {listing.bathrooms || 0}{" "}
+                          {listing.bathrooms === 1 || listing.bathrooms === "1" ? "bath" : "baths"}
+                        </span>
+                      </div>
+
                       {/* Predefined amenities with icons */}
                       {listing.amenities && listing.amenities.includes("wifi") && (
                         <div className="amenity">
@@ -595,9 +627,15 @@ const HomePage = () => {
                             ? "Booked" // Show "Booked" instead of "Reserved"
                             : listing.status}
                       </button>
+                      {/* Updated button to pass landlord ID */}
                       <button
                         className="btn btn-chat"
-                        onClick={() => handleChatWithLandlord(listing.owner?.name || "Landlord")}
+                        onClick={() =>
+                          handleChatWithLandlord(
+                            listing.owner?.name || "Landlord",
+                            listing.owner?.id || listing.owner?._id || listing.landlordId,
+                          )
+                        }
                       >
                         <MessageCircle size={16} /> Chat with landlord
                       </button>
@@ -798,8 +836,14 @@ const HomePage = () => {
           </div>
         </div>
       </footer>
+
       {showChat && (
-        <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} isLoggedIn={isLoggedIn} />
+        <ChatBox
+          onClose={() => setShowChat(false)}
+          landlordName={currentLandlord}
+          landlordId={currentLandlordId} // Pass landlord ID to ChatBox
+          isLoggedIn={isLoggedIn}
+        />
       )}
     </div>
   )

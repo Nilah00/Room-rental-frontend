@@ -2,7 +2,21 @@
 
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Edit, Trash2, Home, Plus, Eye, ArrowUp, ArrowDown, Search, AlertCircle, Lock, RefreshCw, Calendar, MapPin, X } from 'lucide-react'
+import {
+  Edit,
+  Trash2,
+  Home,
+  Plus,
+  Eye,
+  ArrowUp,
+  ArrowDown,
+  Search,
+  AlertCircle,
+  RefreshCw,
+  Calendar,
+  MapPin,
+  X,
+} from "lucide-react"
 import { getUserProperties, updatePropertyStatus, getFeaturedProperties, deleteProperty } from "../services/api"
 import { getImageUrl } from "./imageUtils"
 import "./ManageProperty.css"
@@ -46,7 +60,8 @@ export default function ManageProperties() {
   // Check user role and fetch map properties after role is determined
   useEffect(() => {
     if (isLandlord || isAdmin) {
-      
+      // We're no longer fetching map properties here by default
+      // fetchMapProperties()
     }
   }, [isLandlord, isAdmin, currentUserId])
 
@@ -117,102 +132,102 @@ export default function ManageProperties() {
   // Function to fetch map properties from localStorage
   const fetchMapProperties = () => {
     try {
-      setMapPropertiesLoading(true);
+      setMapPropertiesLoading(true)
 
       // Get properties from localStorage
-      const storedPropertiesJson = localStorage.getItem("properties");
+      const storedPropertiesJson = localStorage.getItem("properties")
       if (!storedPropertiesJson) {
-        console.log("No properties found in localStorage");
-        setMapProperties([]);
-        setMapPropertiesLoading(false);
-        return;
+        console.log("No properties found in localStorage")
+        setMapProperties([])
+        setMapPropertiesLoading(false)
+        return
       }
 
-      let storedProperties = JSON.parse(storedPropertiesJson);
-      console.log("Retrieved properties from localStorage:", storedProperties.length);
+      let storedProperties = JSON.parse(storedPropertiesJson)
+      console.log("Retrieved properties from localStorage:", storedProperties.length)
 
       if (!Array.isArray(storedProperties)) {
-        console.error("Properties in localStorage is not an array:", storedProperties);
-        setMapProperties([]);
-        setMapPropertiesLoading(false);
-        return;
+        console.error("Properties in localStorage is not an array:", storedProperties)
+        setMapProperties([])
+        setMapPropertiesLoading(false)
+        return
       }
 
       // Filter out properties marked as deleted
-      storedProperties = storedProperties.filter((property) => !property.isDeleted);
-      console.log("After filtering deleted properties:", storedProperties.length);
+      storedProperties = storedProperties.filter((property) => !property.isDeleted)
+      console.log("After filtering deleted properties:", storedProperties.length)
 
       // Get the current user ID from localStorage
-      const userJson = localStorage.getItem("user");
-      let userId = null;
+      const userJson = localStorage.getItem("user")
+      let userId = null
       if (userJson) {
         try {
-          const user = JSON.parse(userJson);
-          userId = user.id || user._id;
-          console.log("Current user ID for filtering map properties:", userId);
+          const user = JSON.parse(userJson)
+          userId = user.id || user._id
+          console.log("Current user ID for filtering map properties:", userId)
         } catch (error) {
-          console.error("Error parsing user data:", error);
+          console.error("Error parsing user data:", error)
         }
       }
 
       // Filter properties by owner if user ID is available
       if (userId) {
         storedProperties = storedProperties.filter((property) => {
-          const propertyOwnerId = property.owner?._id || property.owner?.id || property.ownerId;
-          
+          const propertyOwnerId = property.owner?._id || property.owner?.id || property.ownerId
+
           // If property has no owner info, keep it for backward compatibility
           if (!propertyOwnerId) {
-            console.log(`Property ${property._id || property.id} has no owner info, keeping it visible`);
-            return true;
+            console.log(`Property ${property._id || property.id} has no owner info, keeping it visible`)
+            return true
           }
-          
-          const isOwner = String(propertyOwnerId) === String(userId);
-          
+
+          const isOwner = String(propertyOwnerId) === String(userId)
+
           if (!isOwner) {
-            console.log(`Filtering out property not owned by current user: ${property._id || property.id}`);
+            console.log(`Filtering out property not owned by current user: ${property._id || property.id}`)
           }
-          
-          return isOwner;
-        });
-        console.log("After filtering by owner:", storedProperties.length);
+
+          return isOwner
+        })
+        console.log("After filtering by owner:", storedProperties.length)
       } else {
-        console.log("No user ID available, showing all properties");
+        console.log("No user ID available, showing all properties")
       }
 
       // Filter properties with valid coordinates
       const validProperties = storedProperties.filter((property) => {
         // Check coordinates
-        const lat = Number(property.latitude);
-        const lng = Number(property.longitude);
-        const hasValidCoords = validateCoordinates(lat, lng);
+        const lat = Number(property.latitude)
+        const lng = Number(property.longitude)
+        const hasValidCoords = validateCoordinates(lat, lng)
 
         if (!hasValidCoords) {
-          console.log(`Filtering out property with invalid coordinates: ${property._id || property.id}`);
-          return false;
+          console.log(`Filtering out property with invalid coordinates: ${property._id || property.id}`)
+          return false
         }
 
-        return true;
-      });
+        return true
+      })
 
-      console.log("Valid properties for map:", validProperties.length);
+      console.log("Valid properties for map:", validProperties.length)
 
       // Ensure each property has a unique ID for React keys
       const propertiesWithUniqueKeys = validProperties.map((property, index) => {
         if (!property._id && !property.id) {
-          return { ...property, id: `temp-id-${index}` };
+          return { ...property, id: `temp-id-${index}` }
         }
-        return property;
-      });
+        return property
+      })
 
       // Set map properties state
-      setMapProperties(propertiesWithUniqueKeys);
-      setMapPropertiesLoading(false);
+      setMapProperties(propertiesWithUniqueKeys)
+      setMapPropertiesLoading(false)
     } catch (error) {
-      console.error("Error fetching map properties:", error);
-      setMapProperties([]);
-      setMapPropertiesLoading(false);
+      console.error("Error fetching map properties:", error)
+      setMapProperties([])
+      setMapPropertiesLoading(false)
     }
-  };
+  }
 
   const handleEdit = (propertyId) => {
     navigate(`/edit-property/${propertyId}`)
@@ -225,7 +240,7 @@ export default function ManageProperties() {
     try {
       // Check if property owner matches user ID
       const propertyOwnerId = property.owner?._id || property.owner?.id || property.ownerId
-      
+
       // Strict comparison to ensure correct ownership
       return String(propertyOwnerId) === String(currentUserId)
     } catch (error) {
@@ -246,7 +261,6 @@ export default function ManageProperties() {
       setPropertyToDelete({
         id: propertyId,
         title: propertyTitle,
-        deleteFromMap: false, // Default to not deleting from map
       })
       setShowDeleteModal(true)
     } catch (error) {
@@ -405,11 +419,9 @@ export default function ManageProperties() {
 
       setFilteredProperties((prevProperties) => prevProperties.filter((p) => (p.id || p._id) !== propertyId))
 
-      // Check if we should also delete from map
-      if (property.deleteFromMap) {
-        console.log("LANDLORD DELETE: Also deleting from map as requested")
-        deleteFromMap(propertyId)
-      }
+      // Always delete from map when deleting from database
+      console.log("LANDLORD DELETE: Also deleting from map")
+      deleteFromMap(propertyId)
 
       alert("Property deleted successfully from landlord list!")
     } catch (error) {
@@ -692,11 +704,7 @@ export default function ManageProperties() {
                       >
                         <Eye size={16} />
                       </button>
-                      <button
-                        onClick={() => handleEdit(property._id)}
-                        className="edit-button"
-                        title="Edit property"
-                      >
+                      <button onClick={() => handleEdit(property._id)} className="edit-button" title="Edit property">
                         <Edit size={16} />
                       </button>
                       <button
@@ -728,22 +736,6 @@ export default function ManageProperties() {
                 Are you sure you want to delete <strong>"{propertyToDelete.title}"</strong>?
               </p>
               <p className="delete-warning">This action cannot be undone.</p>
-
-              {/* Add checkbox for map deletion */}
-              <div className="delete-option">
-                <input
-                  type="checkbox"
-                  id="deleteFromMap"
-                  checked={propertyToDelete.deleteFromMap}
-                  onChange={() =>
-                    setPropertyToDelete({
-                      ...propertyToDelete,
-                      deleteFromMap: !propertyToDelete.deleteFromMap,
-                    })
-                  }
-                />
-                <label htmlFor="deleteFromMap">Also remove this property from the map</label>
-              </div>
             </div>
             <div className="delete-modal-footer">
               <button
@@ -843,8 +835,217 @@ export default function ManageProperties() {
         </div>
       )}
 
-    
-
+      <style jsx>{`
+        /* Existing styles */
+        
+        /* Map Properties Modal Styles */
+        .map-properties-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.7);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+        
+        .map-properties-modal {
+          background-color: white;
+          border-radius: 8px;
+          width: 90%;
+          max-width: 800px;
+          max-height: 90vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .map-properties-modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px 20px;
+          border-bottom: 1px solid #eaeaea;
+        }
+        
+        .map-properties-modal-header h3 {
+          margin: 0;
+          color: #333;
+          font-size: 1.25rem;
+        }
+        
+        .close-modal-button {
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #666;
+          padding: 4px;
+          border-radius: 4px;
+        }
+        
+        .close-modal-button:hover {
+          background-color: #f5f5f5;
+          color: #333;
+        }
+        
+        .map-properties-modal-body {
+          padding: 20px;
+          overflow-y: auto;
+          max-height: calc(90vh - 140px);
+        }
+        
+        .map-properties-count {
+          margin-bottom: 16px;
+          color: #555;
+          font-size: 0.9rem;
+        }
+        
+        .map-properties-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        
+        .map-property-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          border: 1px solid #eaeaea;
+          border-radius: 6px;
+          background-color: #f9f9f9;
+        }
+        
+        .map-property-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        
+        .map-property-info strong {
+          font-size: 1rem;
+          color: #333;
+        }
+        
+        .map-property-info span {
+          font-size: 0.85rem;
+          color: #666;
+        }
+        
+        .map-property-coords {
+          font-family: monospace;
+          font-size: 0.8rem;
+          color: #777;
+        }
+        
+        .map-property-actions {
+          display: flex;
+          gap: 8px;
+        }
+        
+        .view-map-property-btn,
+        .delete-map-property-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 4px;
+          border: none;
+          cursor: pointer;
+        }
+        
+        .view-map-property-btn {
+          background-color: #4a90e2;
+          color: white;
+        }
+        
+        .view-map-property-btn:hover {
+          background-color: #3a7bc8;
+        }
+        
+        .delete-map-property-btn {
+          background-color: #dc3545;
+          color: white;
+        }
+        
+        .delete-map-property-btn:hover {
+          background-color: #c82333;
+        }
+        
+        .map-properties-modal-footer {
+          display: flex;
+          justify-content: space-between;
+          padding: 16px 20px;
+          border-top: 1px solid #eaeaea;
+        }
+        
+        .refresh-map-properties-btn,
+        .clear-all-map-properties-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          border-radius: 4px;
+          border: none;
+          cursor: pointer;
+          font-weight: 500;
+        }
+        
+        .refresh-map-properties-btn {
+          background-color: #4a90e2;
+          color: white;
+        }
+        
+        .refresh-map-properties-btn:hover {
+          background-color: #3a7bc8;
+        }
+        
+        .clear-all-map-properties-btn {
+          background-color: #dc3545;
+          color: white;
+        }
+        
+        .clear-all-map-properties-btn:hover {
+          background-color: #c82333;
+        }
+        
+        .manage-map-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background-color: #4a90e2;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 500;
+          margin-left: 10px;
+        }
+        
+        .manage-map-btn:hover {
+          background-color: #3a7bc8;
+        }
+        
+        .loading-message {
+          text-align: center;
+          padding: 20px;
+          color: #666;
+        }
+        
+        .no-properties-message {
+          text-align: center;
+          padding: 20px;
+          color: #666;
+          background-color: #f8f9fa;
+          border-radius: 4px;
+        }
+      `}</style>
     </div>
   )
 }
+

@@ -194,6 +194,179 @@
 }
 
 
+/* Add these styles to your existing RoomDetail.css file */
+
+.custom-amenities {
+  margin-top: 1.5rem;
+}
+
+.custom-amenities h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+  color: #4f46e5;
+}
+
+.custom-amenities-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+}
+
+.custom-amenity-item {
+  background-color: #f3f4f6;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+  border: 1px dashed #d1d5db;
+}
+
+/* Add these styles to your RoomDetail.css file */
+
+.room-images-slider {
+  position: relative;
+  width: 100%;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.slider-container {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  overflow: hidden;
+}
+
+.room-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.slider-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+
+.slider-nav:hover {
+  opacity: 1;
+}
+
+.slider-nav.prev {
+  left: 10px;
+}
+
+.slider-nav.next {
+  right: 10px;
+}
+
+.slider-indicators {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ccc;
+  margin: 0 5px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.indicator.active {
+  background: #007bff;
+}
+
+/* Video section - Enhanced for larger size and better visibility */
+.room-video {
+  margin-top: 20px;
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+.room-video h3 {
+  font-size: 1.2rem;
+  padding: 15px 20px;
+  margin: 0;
+  color: #333;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-video h3::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 20px;
+  background-color: #4f46e5;
+  border-radius: 3px;
+}
+
+.room-video video {
+  width: 100%;
+  display: block;
+  max-height: 500px; /* Increased max height */
+  background-color: #000;
+  filter: brightness(1.1) contrast(1.1); /* Slightly increase brightness and contrast */
+}
+
+/* Remove aspect ratio container to allow video to be larger */
+.room-video video {
+  width: 100%;
+  height: auto;
+  min-height: 400px; /* Ensure minimum height */
+}
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .slider-container {
+    height: 300px;
+  }
+
+  .slider-nav {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .slider-container {
+    height: 250px;
+  }
+}
+
 
 
 @media (max-width: 768px) {

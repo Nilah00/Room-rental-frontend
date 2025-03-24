@@ -90,7 +90,7 @@ function RentalMap() {
     }
   }
 
-  // Enhance the fetchPropertiesFromLocalStorage function to be more robust
+  // Function to fetch properties from localStorage
   const fetchPropertiesFromLocalStorage = () => {
     try {
       // Clear any previous error messages
@@ -171,22 +171,22 @@ function RentalMap() {
     fetchPropertiesFromLocalStorage()
   }, [refreshTrigger])
 
-  // Enhance the property deletion event handling to ensure it works with the cascading deletion
+  // Add this useEffect to listen for property deletion events
   useEffect(() => {
     // Function to handle property deletion events
     const handlePropertyDeleted = (event) => {
       const { propertyId } = event.detail
-      console.log(`CASCADE DELETE: Property deleted event received for property ${propertyId}`)
+      console.log(`Property deleted event received for property ${propertyId}`)
 
       // Update the properties state to remove the deleted property
       setProperties((prevProperties) => {
         const filtered = prevProperties.filter((property) => {
           const id = property._id || property.id
           const keepProperty = id !== propertyId
-          console.log(`Filtering property ${id}: ${keepProperty ? "keeping" : "REMOVING from map"}`)
+          console.log(`Filtering property ${id}: ${keepProperty ? "keeping" : "REMOVING"}`)
           return keepProperty
         })
-        console.log(`After filtering event: ${filtered.length} properties remain on map`)
+        console.log(`After filtering event: ${filtered.length} properties remain`)
         return filtered
       })
 
@@ -317,6 +317,9 @@ function RentalMap() {
         }),
       )
 
+      // Force a refresh of the map
+      setRefreshTrigger((prev) => prev + 1)
+
       // Also dispatch storage events for cross-component communication
       console.log("Dispatching storage and localStorageUpdated events")
       window.dispatchEvent(new Event("storage"))
@@ -402,11 +405,7 @@ function RentalMap() {
             <button onClick={handleRefresh} className="refresh-map-btn">
               <RefreshCw size={16} /> Refresh Map
             </button>
-            {isAdmin && (
-              <button onClick={clearAllProperties} className="admin-btn">
-                <Trash2 size={16} /> Clear All Properties
-              </button>
-            )}
+           
           </div>
         </div>
 
@@ -428,11 +427,7 @@ function RentalMap() {
           <button onClick={handleRefresh} className="refresh-map-btn">
             <RefreshCw size={16} /> Refresh Map
           </button>
-          {isAdmin && (
-            <button onClick={clearAllProperties} className="admin-btn">
-              <Trash2 size={16} /> Clear All Properties
-            </button>
-          )}
+         
         </div>
         <span className="property-count">{properties.length} properties shown on map</span>
       </div>
@@ -516,11 +511,7 @@ function RentalMap() {
                       <a href={`/room/${propertyId}`} className="map-popup-link">
                         <Eye size={14} /> View Details
                       </a>
-                      {canManageProperty && (
-                        <button onClick={() => deleteProperty(propertyId)} className="delete-popup-btn">
-                          <Trash2 size={14} /> Force Delete
-                        </button>
-                      )}
+                      
                     </div>
                   </div>
                 </Popup>
@@ -530,128 +521,6 @@ function RentalMap() {
         </MapContainer>
       </div>
 
-      <style jsx>{`
-        .map-controls {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 10px;
-          flex-wrap: wrap;
-        }
-        
-        .refresh-map-btn, .admin-btn {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          background-color: #4a90e2;
-          color: white;
-          border: none;
-          padding: 8px 16px;
-          border-radius: 4px;
-          cursor: pointer;
-          font-weight: 500;
-          margin: 5px;
-        }
-        
-        .refresh-map-btn:hover {
-          background-color: #3a7bc8;
-        }
-        
-        .admin-btn {
-          background-color: #dc3545;
-        }
-        
-        .admin-btn:hover {
-          background-color: #c82333;
-        }
-        
-        .property-count {
-          display: flex;
-          align-items: center;
-          font-size: 14px;
-          color: #555;
-          margin: 5px;
-        }
-        
-        .error-message {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px;
-          background-color: #f8d7da;
-          color: #721c24;
-          border: 1px solid #f5c6cb;
-          border-radius: 4px;
-          margin-bottom: 10px;
-        }
-        
-        .no-properties-message {
-          padding: 20px;
-          text-align: center;
-          background-color: #f8f9fa;
-          border-radius: 4px;
-          margin-bottom: 15px;
-        }
-        
-        .map-popup {
-          max-width: 250px;
-        }
-        
-        .popup-price {
-          font-weight: bold;
-          color: #4a90e2;
-        }
-        
-        .popup-details {
-          display: flex;
-          justify-content: space-between;
-          margin: 5px 0;
-        }
-        
-        .popup-amenities {
-          font-size: 12px;
-          color: #666;
-        }
-        
-        .popup-actions {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 10px;
-          gap: 8px;
-        }
-        
-        .map-popup-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 5px 10px;
-          background-color: #4a90e2;
-          color: white;
-          text-decoration: none;
-          border-radius: 4px;
-          font-size: 14px;
-        }
-        
-        .map-popup-link:hover {
-          background-color: #3a7bc8;
-        }
-        
-        .delete-popup-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 5px 10px;
-          background-color: #dc3545;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 14px;
-        }
-        
-        .delete-popup-btn:hover {
-          background-color: #c82333;
-        }
-      `}</style>
     </div>
   )
 }

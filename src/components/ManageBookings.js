@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
-import { Home, Check, X, Clock, AlertCircle, MessageCircle, ChevronDown, ChevronUp, Trash2 } from "lucide-react"
+import { Link, useNavigate } from "react-router-dom"
+import { Home, Check, X, Clock, AlertCircle, MessageCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { getLandlordBookingRequests, updateBookingStatus } from "../services/api"
 import "./ManageBookings.css"
+import ChatBox from "./ChatBox"
 
 export default function ManageBookings() {
+  const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -15,9 +17,43 @@ export default function ManageBookings() {
   const [processingBookingId, setProcessingBookingId] = useState(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [clearingBookings, setClearingBookings] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [selectedTenant, setSelectedTenant] = useState(null)
+  const [currentTenant, setCurrentTenant] = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
+  const [deletedBookingIds, setDeletedBookingIds] = useState([])
+
+  // Load deleted booking IDs from localStorage
+  const loadDeletedBookings = () => {
+    try {
+      const storedDeletedBookings = localStorage.getItem('deletedBookings')
+      if (storedDeletedBookings) {
+        const parsedIds = JSON.parse(storedDeletedBookings)
+        console.log("Loaded deleted booking IDs from localStorage:", parsedIds)
+        setDeletedBookingIds(parsedIds)
+        return parsedIds
+      }
+      return []
+    } catch (error) {
+      console.error("Error loading deleted bookings from localStorage:", error)
+      return []
+    }
+  }
+
+  // Save deleted booking IDs to localStorage
+  const saveDeletedBookings = (ids) => {
+    try {
+      localStorage.setItem('deletedBookings', JSON.stringify(ids))
+      console.log("Saved deleted booking IDs to localStorage:", ids)
+    } catch (error) {
+      console.error("Error saving deleted bookings to localStorage:", error)
+    }
+  }
 
   useEffect(() => {
-    fetchBookings()
+    const deletedIds = loadDeletedBookings()
+    console.log("Initial load of deleted booking IDs:", deletedIds)
+    fetchBookings(deletedIds)
 
     // Listen for real-time booking updates
     const handleBookingUpdate = (event) => {
@@ -34,12 +70,32 @@ export default function ManageBookings() {
     }
   }, [])
 
-  const fetchBookings = async () => {
+  const fetchBookings = async (deletedIds = null) => {
     try {
       setLoading(true)
       const data = await getLandlordBookingRequests()
       console.log("Fetched bookings:", data)
-      setBookings(Array.isArray(data) ? data : [])
+      
+      // If deletedIds wasn't passed, get them from state or localStorage
+      const idsToFilter = deletedIds || deletedBookingIds || loadDeletedBookings()
+      console.log("Filtering out these booking IDs:", idsToFilter)
+      
+      // Filter out any bookings that were previously deleted
+      let bookingsToShow = Array.isArray(data) ? data : []
+      
+      if (idsToFilter && idsToFilter.length > 0) {
+        bookingsToShow = bookingsToShow.filter(booking => {
+          const bookingId = booking._id || booking.id
+          const shouldKeep = !idsToFilter.includes(bookingId)
+          if (!shouldKeep) {
+            console.log(`Filtering out deleted booking: ${bookingId}`)
+          }
+          return shouldKeep
+        })
+        console.log(`Filtered out ${data.length - bookingsToShow.length} deleted bookings`)
+      }
+      
+      setBookings(bookingsToShow)
     } catch (err) {
       console.error("Error fetching bookings:", err)
       setError("Failed to load booking requests. Please try again.")
@@ -109,7 +165,28 @@ export default function ManageBookings() {
     try {
       setClearingBookings(true)
 
-      // Just clear the bookings in the UI without making an API call
+      // Get all booking IDs to mark as deleted
+      const allBookingIds = bookings.map(booking => booking._id || booking.id)
+      console.log("Clearing all bookings with IDs:", allBookingIds)
+      
+      if (allBookingIds.length === 0) {
+        console.log("No bookings to clear")
+        setClearingBookings(false)
+        setShowClearConfirm(false)
+        return
+      }
+      
+      // Get existing deleted IDs and add new ones
+      const existingDeletedIds = loadDeletedBookings()
+      const updatedDeletedIds = [...new Set([...existingDeletedIds, ...allBookingIds])]
+      
+      // Save to localStorage
+      saveDeletedBookings(updatedDeletedIds)
+      
+      // Update state
+      setDeletedBookingIds(updatedDeletedIds)
+      
+      // Clear bookings from UI
       setBookings([])
       setShowClearConfirm(false)
 
@@ -124,6 +201,48 @@ export default function ManageBookings() {
     } finally {
       setClearingBookings(false)
       setShowClearConfirm(false)
+    }
+  }
+
+  // Handle deleting individual booking
+  const handleDeleteBooking = (bookingId) => {
+    if (showDeleteConfirm !== bookingId) {
+      setShowDeleteConfirm(bookingId)
+      return
+    }
+
+    try {
+      console.log(`Deleting booking with ID: ${bookingId}`)
+      
+      // Get existing deleted IDs and add the new one
+      const existingDeletedIds = loadDeletedBookings()
+      const updatedDeletedIds = [...existingDeletedIds, bookingId]
+      
+      // Save to localStorage
+      saveDeletedBookings(updatedDeletedIds)
+      
+      // Update state
+      setDeletedBookingIds(updatedDeletedIds)
+      
+      // Remove the booking from the UI
+      setBookings((prevBookings) => prevBookings.filter((booking) => (booking._id || booking.id) !== bookingId))
+      setShowDeleteConfirm(null)
+      
+      console.log(`Booking ${bookingId} removed from view and stored in localStorage`)
+    } catch (err) {
+      console.error("Error deleting booking:", err)
+      alert("Failed to delete booking. Please try again.")
+    }
+  }
+
+  // Handle cancelling a booking
+  const handleCancelBooking = async (bookingId) => {
+    try {
+      await handleUpdateStatus(bookingId, "cancelled")
+      alert("Booking has been cancelled successfully.")
+    } catch (err) {
+      console.error("Error cancelling booking:", err)
+      alert("Failed to cancel booking. Please try again.")
     }
   }
 
@@ -149,6 +268,48 @@ export default function ManageBookings() {
       default:
         return ""
     }
+  }
+
+  const handleContactTenant = (tenant) => {
+    setCurrentTenant(tenant)
+    setShowChat(true)
+  }
+
+  const handleCloseChat = () => {
+    setShowChat(false)
+    setSelectedTenant(null)
+  }
+
+  const handleViewProperty = (propertyId) => {
+    if (!propertyId) {
+      console.error("Property ID is undefined or null")
+      return
+    }
+
+    // Extract the ID string if propertyId is an object
+    let idToUse = propertyId
+
+    if (typeof propertyId === "object" && propertyId !== null) {
+      console.log("Property ID is an object:", propertyId)
+
+      // Try to extract the ID from common ID fields
+      if (propertyId._id) {
+        idToUse = propertyId._id
+      } else if (propertyId.id) {
+        idToUse = propertyId.id
+      } else {
+        console.error("Could not extract ID from property object:", propertyId)
+        return
+      }
+    }
+
+    console.log("Navigating to property with ID:", idToUse)
+    navigate(`/room/${idToUse}`)
+  }
+
+  // Check if booking can be approved/rejected (pending or cancelled)
+  const canApproveOrReject = (status) => {
+    return status === "pending" || status === "cancelled"
   }
 
   if (loading) {
@@ -189,7 +350,7 @@ export default function ManageBookings() {
         <div className="error-message">
           <AlertCircle size={20} />
           <span>{error}</span>
-          <button onClick={fetchBookings} className="retry-button">
+          <button onClick={() => fetchBookings()} className="retry-button">
             Retry
           </button>
         </div>
@@ -207,8 +368,8 @@ export default function ManageBookings() {
       ) : (
         <div className="bookings-list">
           {bookings.map((booking) => (
-            <div key={booking._id} className={`booking-card ${expandedBooking === booking._id ? "expanded" : ""}`}>
-              <div className="booking-header" onClick={() => handleExpandBooking(booking._id)}>
+            <div key={booking._id || booking.id} className={`booking-card ${expandedBooking === (booking._id || booking.id) ? "expanded" : ""}`}>
+              <div className="booking-header" onClick={() => handleExpandBooking(booking._id || booking.id)}>
                 <div className="booking-title">
                   <h3>{booking.propertyTitle}</h3>
                   <span className={`status-badge ${getStatusBadgeClass(booking.status)}`}>
@@ -220,11 +381,23 @@ export default function ManageBookings() {
                   {booking.status !== "pending" && booking.responseDate && (
                     <span className="response-date">Responded on {formatDate(booking.responseDate)}</span>
                   )}
-                  {expandedBooking === booking._id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  <div className="booking-actions-compact">
+                    <button 
+                      className="delete-booking-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteBooking(booking._id || booking.id);
+                      }}
+                      title="Delete booking"
+                    >
+                      {showDeleteConfirm === (booking._id || booking.id) ? "Confirm" : <Trash2 size={16} />}
+                    </button>
+                  </div>
+                  {expandedBooking === (booking._id || booking.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </div>
               </div>
 
-              {expandedBooking === booking._id && (
+              {expandedBooking === (booking._id || booking.id) && (
                 <div className="booking-details">
                   <div className="tenant-info">
                     <h4>Tenant Information</h4>
@@ -241,9 +414,6 @@ export default function ManageBookings() {
                       <strong>Move-in Date:</strong> {formatDate(booking.moveInDate)}
                     </p>
                     <p>
-                      <strong>Lease Duration:</strong> {booking.leaseDuration} months
-                    </p>
-                    <p>
                       <strong>Family Members:</strong> {booking.familyMembers}
                     </p>
                     {booking.message && (
@@ -254,35 +424,50 @@ export default function ManageBookings() {
                     )}
                   </div>
 
-                  {booking.status === "pending" && (
+                  {/* Show approve/reject buttons for both pending and cancelled bookings */}
+                  {canApproveOrReject(booking.status) && (
                     <div className="booking-actions">
-                      <h4>Respond to Request</h4>
-                      <div className="response-form">
+                      <div className="action-buttons">
+                        <button
+                          className="approve-button"
+                          onClick={() => handleUpdateStatus(booking._id || booking.id, "approved")}
+                          disabled={processingBookingId === (booking._id || booking.id)}
+                        >
+                          <Check size={16} />
+                          {processingBookingId === (booking._id || booking.id) ? "Processing..." : "Approve"}
+                        </button>
+                        <button
+                          className="reject-button"
+                          onClick={() => handleUpdateStatus(booking._id || booking.id, "rejected")}
+                          disabled={processingBookingId === (booking._id || booking.id)}
+                        >
+                          <X size={16} />
+                          {processingBookingId === (booking._id || booking.id) ? "Processing..." : "Reject"}
+                        </button>
+                      </div>
+                      <div className="response-field">
+                        <label htmlFor="responseMessage">Response Message (optional):</label>
                         <textarea
-                          placeholder="Optional: Add a message to the tenant..."
+                          id="responseMessage"
                           value={responseMessage}
                           onChange={handleResponseChange}
-                          className="response-textarea"
+                          placeholder="Add a message to the tenant..."
+                          rows={3}
                         ></textarea>
-                        <div className="action-buttons">
-                          <button
-                            className="approve-button"
-                            onClick={() => handleUpdateStatus(booking._id, "approved")}
-                            disabled={processingBookingId === booking._id}
-                          >
-                            <Check size={16} />
-                            {processingBookingId === booking._id ? "Processing..." : "Approve Request"}
-                          </button>
-                          <button
-                            className="reject-button"
-                            onClick={() => handleUpdateStatus(booking._id, "rejected")}
-                            disabled={processingBookingId === booking._id}
-                          >
-                            <X size={16} />
-                            {processingBookingId === booking._id ? "Processing..." : "Reject Request"}
-                          </button>
-                        </div>
                       </div>
+                    </div>
+                  )}
+
+                  {booking.status === "approved" && (
+                    <div className="booking-actions">
+                      <button
+                        className="cancel-button"
+                        onClick={() => handleCancelBooking(booking._id || booking.id)}
+                        disabled={processingBookingId === (booking._id || booking.id)}
+                      >
+                        <X size={16} />
+                        {processingBookingId === (booking._id || booking.id) ? "Processing..." : "Cancel Booking"}
+                      </button>
                     </div>
                   )}
 
@@ -294,13 +479,17 @@ export default function ManageBookings() {
                   )}
 
                   <div className="contact-tenant">
-                    <button className="contact-button">
+                    <button className="contact-button" onClick={() => handleContactTenant(booking.name)}>
                       <MessageCircle size={16} />
                       Contact Tenant
                     </button>
-                    <Link to={`/room/${booking.propertyId}`} className="view-property-link">
+                    <button
+                      onClick={() => handleViewProperty(booking.propertyId)}
+                      className="view-button"
+                      title="View property"
+                    >
                       View Property
-                    </Link>
+                    </button>
                   </div>
                 </div>
               )}
@@ -308,7 +497,72 @@ export default function ManageBookings() {
           ))}
         </div>
       )}
+      {showChat && (
+        <ChatBox onClose={() => setShowChat(false)} landlordName={currentTenant || "Tenant"} isLoggedIn={true} />
+      )}
+
+      <style jsx>{`
+        /* New styles for delete button and cancel button */
+        .booking-actions-compact {
+          display: flex;
+          align-items: center;
+          margin-right: 10px;
+        }
+        
+        .delete-booking-button {
+          background-color: #dc3545;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          padding: 4px 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-left: 10px;
+        }
+        
+        .delete-booking-button:hover {
+          background-color: #c82333;
+        }
+        
+        .cancel-button {
+          background-color: #f8d7da;
+          color: #721c24;
+          border: 1px solid #f5c6cb;
+          border-radius: 4px;
+          padding: 8px 16px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 500;
+          margin-top: 10px;
+        }
+        
+        .cancel-button:hover {
+          background-color: #f1b0b7;
+        }
+        
+        .response-field {
+          margin-top: 15px;
+          width: 100%;
+        }
+        
+        .response-field label {
+          display: block;
+          margin-bottom: 5px;
+          font-weight: 500;
+        }
+        
+        .response-field textarea {
+          width: 100%;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          resize: vertical;
+        }
+      `}</style>
     </div>
   )
 }
-
