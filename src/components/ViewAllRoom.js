@@ -46,10 +46,10 @@ function ViewAllRooms() {
         !searchParams.furnished ||
         (searchParams.furnished === "furnished" && room.furnished) ||
         (searchParams.furnished === "unfurnished" && !room.furnished)
-      const matchesAvailability =
-        !searchParams.availability ||
-        room.status === searchParams.availability ||
-        (searchParams.availability === "Available" && !room.status)
+
+      // Standardize status for filtering
+      const roomStatus = room.status || "Available"
+      const matchesAvailability = !searchParams.availability || roomStatus === searchParams.availability
 
       return matchesLocation && matchesPrice && matchesFurnished && matchesAvailability
     })
@@ -81,8 +81,29 @@ function ViewAllRooms() {
     setError(null)
     try {
       const response = await axios.get("http://localhost:5000/api/properties")
-      setRooms(response.data)
-      setFilteredRooms(response.data)
+
+      // Standardize status values in the fetched data
+      const standardizedRooms = response.data.map((room) => {
+        // If status is missing, set to "Available"
+        if (!room.status) {
+          return { ...room, status: "Available" }
+        }
+
+        // Map "Not Available" and "Maintenance" to "Booked"
+        if (room.status === "Not Available" || room.status === "Maintenance") {
+          return { ...room, status: "Booked" }
+        }
+
+        // Map "Reserved" to "Pending"
+        if (room.status === "Reserved") {
+          return { ...room, status: "Pending" }
+        }
+
+        return room
+      })
+
+      setRooms(standardizedRooms)
+      setFilteredRooms(standardizedRooms)
     } catch (error) {
       console.error("Error fetching rooms:", error)
       setError("Failed to load rooms. Please try again later.")
@@ -143,6 +164,18 @@ function ViewAllRooms() {
     return <div className="error">{error}</div>
   }
 
+  // Helper function to get button text based on status
+  const getBookButtonText = (status) => {
+    switch (status) {
+      case "Booked":
+        return "Booked"
+      case "Pending":
+        return "Pending"
+      default:
+        return "Book Now"
+    }
+  }
+
   return (
     <div className="view-all-rooms-page">
       <div className="container">
@@ -173,17 +206,15 @@ function ViewAllRooms() {
             <option value="35001+">Rs 35,001+</option>
           </select>
           <select name="furnished" value={searchParams.furnished} onChange={handleInputChange}>
-            <option value="">Furnished Status</option>
+            <option value="">All</option>
             <option value="furnished">Furnished</option>
             <option value="unfurnished">Unfurnished</option>
           </select>
           <select name="availability" value={searchParams.availability} onChange={handleInputChange}>
             <option value="">Availability Status</option>
             <option value="Available">Available</option>
+            <option value="Pending">Pending</option>
             <option value="Booked">Booked</option>
-            <option value="Not Available">Not Available</option>
-            <option value="Maintenance">Maintenance</option>
-            <option value="Reserved">Reserved</option>
           </select>
           <button type="submit" className="btn btn-search">
             <Search size={20} /> Search Rooms
@@ -208,11 +239,9 @@ function ViewAllRooms() {
               </div>
               <div className="listing-details">
                 <h3>{room.title}</h3>
-                <div
-                  className={`availability-badge ${room.status ? room.status.toLowerCase().replace(/\s+/g, "-") : "available"}`}
-                >
+                <div className={`availability-badge ${room.status.toLowerCase().replace(/\s+/g, "-")}`}>
                   <Badge size={14} />
-                  <span>{room.status || "Available"}</span>
+                  <span>{room.status}</span>
                 </div>
                 <p className="listing-location">{room.location}</p>
                 <p className="listing-price">Rs {room.price.toLocaleString()}/month</p>
@@ -267,15 +296,13 @@ function ViewAllRooms() {
                   <button
                     className="btn btn-book"
                     onClick={() => handleBookNow(room)}
-                    disabled={
-                      room.status === "Booked" || room.status === "Not Available" || room.status === "Maintenance"
-                    }
+                    disabled={room.status !== "Available"}
                   >
-                    {room.status === "Available" || !room.status ? "Book Now" : room.status}
+                    {getBookButtonText(room.status)}
                   </button>
                   <button
                     className="btn btn-chat"
-                    onClick={() => handleChatWithLandlord(room.owner.name || "Landlord")}
+                    onClick={() => handleChatWithLandlord(room.owner?.name || "Landlord")}
                   >
                     <MessageCircle size={16} /> Chat with landlord
                   </button>

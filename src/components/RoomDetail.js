@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
-import { MessageCircle, MapPin, Badge } from "lucide-react"
-import { getPropertyById, toggleFavorite as toggleFavoriteApi, getFavorites } from "../services/api"
+import { MessageCircle, MapPin, Badge, Eye, Bed, Bath, Wifi, Car, Droplet, Heart } from "lucide-react"
+import { getProperties, getPropertyById } from "../services/api"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import { isAuthenticated } from "../services/auth"
 import ChatBox from "./ChatBox"
@@ -18,58 +18,21 @@ const RoomDetail = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [favorites, setFavorites] = useState([])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [relatedRooms, setRelatedRooms] = useState([])
+  const [isLoadingRelated, setIsLoadingRelated] = useState(false)
+  const [activeChatRoom, setActiveChatRoom] = useState(null)
   const { id } = useParams()
   const navigate = useNavigate()
 
-  // Load favorites from API or localStorage
-  const loadFavorites = useCallback(async () => {
-    try {
-      if (isLoggedIn) {
-        const response = await getFavorites()
-        const favoritesData = response.data || []
-        setFavorites(favoritesData)
+  // Load favorites from localStorage
+  const loadFavorites = useCallback(() => {
+    const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
+    setFavorites(storedFavorites)
 
-        // Check if current room is in favorites
-        const isCurrentRoomFavorite = favoritesData.some((fav) => {
-          // Check direct match
-          if (fav._id === id || fav.id === id) return true
-
-          // Check if favorite has property field
-          if (fav.property && (fav.property._id === id || fav.property.id === id)) return true
-
-          return false
-        })
-
-        setIsFavorite(isCurrentRoomFavorite)
-      } else {
-        // If not logged in, check localStorage
-        const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
-        setFavorites(storedFavorites)
-
-        // Check if current room is in favorites
-        const isCurrentRoomFavorite = storedFavorites.some((fav) => {
-          if (fav._id === id || fav.id === id) return true
-          if (fav.property && (fav.property._id === id || fav.property.id === id)) return true
-          return false
-        })
-
-        setIsFavorite(isCurrentRoomFavorite)
-      }
-    } catch (error) {
-      console.error("Error loading favorites:", error)
-      // Fallback to localStorage
-      const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
-      setFavorites(storedFavorites)
-
-      const isCurrentRoomFavorite = storedFavorites.some((fav) => {
-        if (fav._id === id || fav.id === id) return true
-        if (fav.property && (fav.property._id === id || fav.property.id === id)) return true
-        return false
-      })
-
-      setIsFavorite(isCurrentRoomFavorite)
-    }
-  }, [id, isLoggedIn])
+    // Check if current room is in favorites
+    const isCurrentRoomFavorite = storedFavorites.some((fav) => fav._id === id || fav.id === id)
+    setIsFavorite(isCurrentRoomFavorite)
+  }, [id])
 
   const fetchRoomData = useCallback(async () => {
     if (!id) return
@@ -79,16 +42,81 @@ const RoomDetail = () => {
     try {
       const roomData = await getPropertyById(id)
       setRoom(roomData)
-
-      // After fetching room data, load favorites to check if this room is a favorite
-      await loadFavorites()
     } catch (err) {
       console.error("Error fetching room data:", err)
       setError("Failed to load room details. Please try again.")
     } finally {
       setIsLoading(false)
     }
-  }, [id, loadFavorites])
+  }, [id])
+
+  // Fetch related rooms based on location
+  const fetchRelatedRooms = useCallback(async () => {
+    if (!room || !room.location) return
+
+    try {
+      setIsLoadingRelated(true)
+      const response = await getProperties()
+
+      if (response && response.data) {
+        // Extract keywords from the current room's location
+        // Split by common delimiters and filter out empty strings or very short words
+        const locationKeywords = room.location
+          .toLowerCase()
+          .split(/[,\s-/]+/)
+          .filter((keyword) => keyword.length > 2)
+          .map((keyword) => keyword.trim())
+
+        console.log("Location keywords:", locationKeywords)
+
+        // Filter properties that match any of the keywords
+        const related = response.data
+          .filter((property) => {
+            // Skip the current property
+            if (property._id === room._id || property.id === room._id) return false
+
+            // Skip properties without location
+            if (!property.location) return false
+
+            const propertyLocation = property.location.toLowerCase()
+
+            // Check if any keyword is found in the property location
+            return locationKeywords.some((keyword) => propertyLocation.includes(keyword))
+          })
+          .slice(0, 4) // Show up to 4 related properties
+
+        setRelatedRooms(related)
+
+        // If we don't have enough related properties by location keywords,
+        // add some properties with similar price range
+        if (related.length < 2 && room.price) {
+          const priceRange = {
+            min: room.price * 0.7, // 70% of current price
+            max: room.price * 1.3, // 130% of current price
+          }
+
+          const similarPriceProperties = response.data
+            .filter((property) => {
+              // Skip properties already in related
+              if (related.some((r) => r._id === property._id || r.id === property._id)) return false
+
+              // Skip the current property
+              if (property._id === room._id || property.id === room._id) return false
+
+              // Check if price is within range
+              return property.price >= priceRange.min && property.price <= priceRange.max
+            })
+            .slice(0, 4 - related.length) // Fill up to 4 total properties
+
+          setRelatedRooms([...related, ...similarPriceProperties])
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching related rooms:", err)
+    } finally {
+      setIsLoadingRelated(false)
+    }
+  }, [room])
 
   useEffect(() => {
     const checkAuth = () => {
@@ -98,6 +126,7 @@ const RoomDetail = () => {
 
     checkAuth()
     fetchRoomData()
+    loadFavorites()
 
     // Listen for favorites updates from other components
     const handleFavoritesUpdate = () => {
@@ -111,26 +140,56 @@ const RoomDetail = () => {
     }
   }, [fetchRoomData, loadFavorites])
 
-  const handleToggleFavorite = async () => {
+  // Fetch related rooms when room data is loaded
+  useEffect(() => {
+    if (room) {
+      fetchRelatedRooms()
+    }
+  }, [room, fetchRelatedRooms])
+
+  const handleToggleFavorite = (e, roomToToggle) => {
+    if (e) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+
     if (!isLoggedIn) {
       navigate("/login")
       return
     }
 
-    try {
-      console.log("Toggling favorite for room:", id)
+    const roomId = roomToToggle?._id || roomToToggle?.id || id
+    const roomData = roomToToggle || room
 
-      // Call the API to toggle favorite status
-      await toggleFavoriteApi(id)
+    // Get current favorites from localStorage
+    const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
 
-      // Refresh favorites to get updated status
-      await loadFavorites()
+    // Check if this room is already in favorites
+    const isAlreadyFavorite = storedFavorites.some((fav) => fav._id === roomId || fav.id === roomId)
 
-      // Notify other components about the change
-      window.dispatchEvent(new CustomEvent("favoritesUpdated"))
-    } catch (err) {
-      console.error("Error toggling favorite:", err)
+    let updatedFavorites
+
+    if (isAlreadyFavorite) {
+      // Remove from favorites
+      updatedFavorites = storedFavorites.filter((fav) => fav._id !== roomId && fav.id !== roomId)
+    } else {
+      // Add to favorites
+      updatedFavorites = [...storedFavorites, roomData]
     }
+
+    // Update localStorage
+    localStorage.setItem("favorites", JSON.stringify(updatedFavorites))
+
+    // Update state
+    setFavorites(updatedFavorites)
+
+    // If this is the main room, update isFavorite state
+    if (roomId === id) {
+      setIsFavorite(!isAlreadyFavorite)
+    }
+
+    // Notify other components about the change
+    window.dispatchEvent(new CustomEvent("favoritesUpdated"))
   }
 
   const handleBookNow = () => {
@@ -148,11 +207,18 @@ const RoomDetail = () => {
     navigate(`/booknow/${id}`, { state: { roomDetails: room } })
   }
 
-  const handleChatWithLandlord = () => {
+  const handleChatWithLandlord = (relatedRoom = null) => {
     if (!isLoggedIn) {
       navigate("/login")
       return
     }
+
+    if (relatedRoom) {
+      setActiveChatRoom(relatedRoom)
+    } else {
+      setActiveChatRoom(null)
+    }
+
     setShowChat(true)
   }
 
@@ -167,6 +233,37 @@ const RoomDetail = () => {
     if (room?.images?.length > 0) {
       setCurrentImageIndex((prevIndex) => (prevIndex + 1) % room.images.length)
     }
+  }
+
+  // Handle viewing a related room
+  const handleViewRelatedRoom = (roomId) => {
+    navigate(`/room/${roomId}`)
+    // Scroll to top when navigating to a new room
+    window.scrollTo(0, 0)
+  }
+
+  // Check if a room is in favorites
+  const isRoomFavorite = (roomId) => {
+    return favorites.some((fav) => fav._id === roomId || fav.id === roomId)
+  }
+
+  const handleBookRelatedRoom = (relatedRoom) => {
+    if (!isLoggedIn) {
+      navigate("/login")
+      return
+    }
+
+    // Check if room is available for booking
+    if (
+      relatedRoom.status === "Booked" ||
+      relatedRoom.status === "Not Available" ||
+      relatedRoom.status === "Maintenance"
+    ) {
+      alert(`This property is currently ${relatedRoom.status.toLowerCase()} and cannot be booked.`)
+      return
+    }
+
+    navigate(`/booknow/${relatedRoom._id || relatedRoom.id}`, { state: { roomDetails: relatedRoom } })
   }
 
   if (isLoading) return <div className="loading">Loading room details...</div>
@@ -290,17 +387,132 @@ const RoomDetail = () => {
               >
                 {room.status === "Available" || !room.status ? "Book Now" : room.status}
               </button>
-              <button className="btn btn-outline" onClick={handleChatWithLandlord}>
+              <button className="btn btn-outline" onClick={() => handleChatWithLandlord()}>
                 <MessageCircle size={20} /> Chat with Landlord
               </button>
             </div>
           </div>
         </div>
+
+        {/* Similar Properties Section */}
+        {relatedRooms.length > 0 && (
+          <div className="related-rooms-section">
+            <h2>Similar Properties You Might Like</h2>
+            <div className="listings-grid">
+              {relatedRooms.map((relatedRoom) => (
+                <div key={relatedRoom._id || relatedRoom.id} className="listing-card">
+                  <div className="listing-image-container">
+                    <img
+                      src={getImageUrl(relatedRoom.images?.[0]) || "/placeholder.svg"}
+                      alt={relatedRoom.title}
+                      className="listing-image"
+                      onError={handleImageError}
+                    />
+                    <div className="listing-overlay">
+                      <button
+                        className="related-room-view-button"
+                        onClick={() => handleViewRelatedRoom(relatedRoom._id || relatedRoom.id)}
+                      >
+                        <Eye size={16} /> View
+                      </button>
+                    </div>
+                  </div>
+                  <div className="listing-details">
+                    <h3>{relatedRoom.title}</h3>
+
+                    <div
+                      className={`availability-badge ${
+                        relatedRoom.status ? relatedRoom.status.toLowerCase().replace(/\s+/g, "-") : "available"
+                      }`}
+                    >
+                      <Badge size={12} />
+                      <span>{relatedRoom.status || "Available"}</span>
+                    </div>
+
+                    <p className="listing-location">
+                      <MapPin size={16} /> {relatedRoom.location}
+                    </p>
+
+                    <p className="listing-price">Rs {relatedRoom.price?.toLocaleString()}/month</p>
+
+                    <p className="furnished-status">{relatedRoom.furnished ? "Furnished" : "Unfurnished"}</p>
+                    <p className="relevance-indicator">
+                      {relatedRoom.location
+                        .toLowerCase()
+                        .includes(room.location.toLowerCase().split(",")[0].trim().toLowerCase())
+                        ? "Same area"
+                        : "Similar price range"}
+                    </p>
+
+                    <div className="amenities">
+                      <div className="amenity">
+                        <Bed size={16} /> {relatedRoom.bedrooms || 1} bed
+                      </div>
+                      <div className="amenity">
+                        <Bath size={16} /> {relatedRoom.bathrooms || 1} bath
+                      </div>
+
+                      {relatedRoom.amenities && relatedRoom.amenities.includes("WiFi") && (
+                        <div className="amenity">
+                          <Wifi size={16} /> WiFi
+                        </div>
+                      )}
+
+                      {relatedRoom.amenities && relatedRoom.amenities.includes("Parking") && (
+                        <div className="amenity">
+                          <Car size={16} /> Parking
+                        </div>
+                      )}
+
+                      {relatedRoom.amenities && relatedRoom.amenities.includes("Water") && (
+                        <div className="amenity">
+                          <Droplet size={16} /> Water
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="listing-actions">
+                      <button
+                        className="btn-book"
+                        onClick={() => handleBookRelatedRoom(relatedRoom)}
+                        disabled={
+                          relatedRoom.status === "Booked" ||
+                          relatedRoom.status === "Not Available" ||
+                          relatedRoom.status === "Maintenance"
+                        }
+                      >
+                        {relatedRoom.status === "Available" || !relatedRoom.status ? "Book Now" : relatedRoom.status}
+                      </button>
+                      <button className="btn-chat" onClick={() => handleChatWithLandlord(relatedRoom)}>
+                        <MessageCircle size={16} /> Chat with landlord
+                      </button>
+                      <button
+                        className={`btn-favorite ${isRoomFavorite(relatedRoom._id || relatedRoom.id) ? "btn-favorite-active" : ""}`}
+                        onClick={(e) => handleToggleFavorite(e, relatedRoom)}
+                        aria-label={
+                          isRoomFavorite(relatedRoom._id || relatedRoom.id)
+                            ? "Remove from favorites"
+                            : "Add to favorites"
+                        }
+                      >
+                        <Heart
+                          size={20}
+                          fill={isRoomFavorite(relatedRoom._id || relatedRoom.id) ? "currentColor" : "none"}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
       {showChat && (
         <ChatBox
           onClose={() => setShowChat(false)}
-          landlordName={room.owner?.name || "Landlord"}
+          landlordName={activeChatRoom?.owner?.name || room.owner?.name || "Landlord"}
           isLoggedIn={isLoggedIn}
         />
       )}

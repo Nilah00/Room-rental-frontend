@@ -636,52 +636,8 @@ export const updatePropertyStatus = async (id, statusData) => {
 
 export const deleteProperty = async (id) => {
   try {
-    console.log(`Deleting property with ID: ${id}`)
-    
-    // First, remove the property from the map (localStorage)
-    try {
-      console.log("Removing property from map (localStorage)")
-      const storedPropertiesJson = localStorage.getItem("properties")
-      
-      if (storedPropertiesJson) {
-        const storedProperties = JSON.parse(storedPropertiesJson)
-        
-        if (Array.isArray(storedProperties)) {
-          // Convert ID to string for consistent comparison
-          const targetId = String(id).replace(/"/g, '')
-          
-          // Filter out the property to delete
-          const updatedProperties = storedProperties.filter(property => {
-            const propId = String(property._id || property.id || '').replace(/"/g, '')
-            return propId !== targetId
-          })
-          
-          // Save the updated array back to localStorage
-          localStorage.setItem("properties", JSON.stringify(updatedProperties))
-          console.log(`Property ${id} removed from map (localStorage)`)
-          
-          // Dispatch events to notify other components
-          window.dispatchEvent(new CustomEvent("propertyDeleted", {
-            detail: { propertyId: id },
-          }))
-          window.dispatchEvent(new Event("storage"))
-          window.dispatchEvent(new Event("localStorageUpdated"))
-          
-          // Force refresh the map if the global function exists
-          if (typeof window.forceRefreshMap === "function") {
-            setTimeout(() => window.forceRefreshMap(), 300)
-          }
-        }
-      }
-    } catch (mapError) {
-      console.error("Error removing property from map:", mapError)
-      // Continue with API deletion even if map deletion fails
-    }
-    
-    // Then delete from the server/database
     const response = await api.delete(`/properties/${id}`)
     console.log("Delete property response:", response)
-    
     if (!response.data.success) {
       throw new Error(response.data.message || "Failed to delete property")
     }
@@ -860,7 +816,7 @@ const getToken = () => {
 // Create a booking request
 export const createBooking = async (bookingData) => {
   try {
-    const response = await fetch(`${API_URL}/api/bookings`, {
+    const response = await fetch(`${API_URL}/bookings`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -884,7 +840,7 @@ export const createBooking = async (bookingData) => {
 // Get bookings for landlord
 export const getLandlordBookings = async () => {
   try {
-    const response = await fetch(`${API_URL}/api/bookings/landlord`, {
+    const response = await fetch(`${API_URL}/bookings/landlord`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${getToken()}`,
@@ -906,7 +862,7 @@ export const getLandlordBookings = async () => {
 // Get bookings for tenant
 export const getTenantBookings = async () => {
   try {
-    const response = await fetch(`${API_URL}/api/bookings/tenant`, {
+    const response = await fetch(`${API_URL}/bookings/tenant`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${getToken()}`,
@@ -928,7 +884,7 @@ export const getTenantBookings = async () => {
 // Update booking status
 export const updateBookingStatusNew = async (bookingId, status) => {
   try {
-    const response = await fetch(`${API_URL}/api/bookings/${bookingId}/status`, {
+    const response = await fetch(`${API_URL}/bookings/${bookingId}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -952,7 +908,7 @@ export const updateBookingStatusNew = async (bookingId, status) => {
 // Cancel booking
 export const cancelBooking = async (bookingId) => {
   try {
-    const response = await fetch(`${API_URL}/api/bookings/${bookingId}/cancel`, {
+    const response = await fetch(`${API_URL}/bookings/${bookingId}/cancel`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${getToken()}`,
@@ -996,3 +952,4 @@ export const clearAllNotifications = async () => {
 }
 
 export default api
+
