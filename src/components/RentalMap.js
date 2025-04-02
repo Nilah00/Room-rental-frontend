@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import L from "leaflet"
-import { RefreshCw, AlertCircle, Trash2, Eye } from "lucide-react"
+import { RefreshCw, AlertCircle, Eye } from "lucide-react"
 
 // Fix for default marker icon
 delete L.Icon.Default.prototype._getIconUrl
@@ -405,7 +405,6 @@ function RentalMap() {
             <button onClick={handleRefresh} className="refresh-map-btn">
               <RefreshCw size={16} /> Refresh Map
             </button>
-           
           </div>
         </div>
 
@@ -427,7 +426,6 @@ function RentalMap() {
           <button onClick={handleRefresh} className="refresh-map-btn">
             <RefreshCw size={16} /> Refresh Map
           </button>
-         
         </div>
         <span className="property-count">{properties.length} properties shown on map</span>
       </div>
@@ -507,12 +505,14 @@ function RentalMap() {
                       <p className="popup-amenities">Amenities: {property.amenities.join(", ")}</p>
                     )}
 
-                    <div className="popup-actions">
-                      <a href={`/room/${propertyId}`} className="map-popup-link">
-                        <Eye size={14} /> View Details
-                      </a>
-                      
-                    </div>
+                    {/* Display custom amenities if available */}
+                    {property.customAmenities &&
+                      Array.isArray(property.customAmenities) &&
+                      property.customAmenities.length > 0 && (
+                        <p className="popup-amenities custom-amenities">
+                          Custom Amenities: {property.customAmenities.join(", ")}
+                        </p>
+                      )}
                   </div>
                 </Popup>
               </Marker>
@@ -520,7 +520,6 @@ function RentalMap() {
           })}
         </MapContainer>
       </div>
-
     </div>
   )
 }

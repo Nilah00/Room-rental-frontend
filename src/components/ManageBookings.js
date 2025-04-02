@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Home, Check, X, Clock, AlertCircle, MessageCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
-import { getLandlordBookingRequests, updateBookingStatus } from "../services/api"
+import { Home, Check, X, Clock, AlertCircle, MessageCircle, ChevronDown, ChevronUp, Trash2 } from "lucide-react"
+import { getLandlordBookingRequests, updateBookingStatus, getChatByIdOrCreate, getCurrentUserId } from "../services/api"
 import "./ManageBookings.css"
 import ChatBox from "./ChatBox"
 
@@ -22,11 +22,21 @@ export default function ManageBookings() {
   const [currentTenant, setCurrentTenant] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
   const [deletedBookingIds, setDeletedBookingIds] = useState([])
+  const [chatId, setChatId] = useState(null)
+  const [selectedBooking, setSelectedBooking] = useState(null)
+  const [currentUserId, setCurrentUserId] = useState(null)
+
+  // Get current user ID on component mount
+  useEffect(() => {
+    const userId = getCurrentUserId()
+    console.log("Current user ID:", userId)
+    setCurrentUserId(userId)
+  }, [])
 
   // Load deleted booking IDs from localStorage
   const loadDeletedBookings = () => {
     try {
-      const storedDeletedBookings = localStorage.getItem('deletedBookings')
+      const storedDeletedBookings = localStorage.getItem("deletedBookings")
       if (storedDeletedBookings) {
         const parsedIds = JSON.parse(storedDeletedBookings)
         console.log("Loaded deleted booking IDs from localStorage:", parsedIds)
@@ -43,7 +53,7 @@ export default function ManageBookings() {
   // Save deleted booking IDs to localStorage
   const saveDeletedBookings = (ids) => {
     try {
-      localStorage.setItem('deletedBookings', JSON.stringify(ids))
+      localStorage.setItem("deletedBookings", JSON.stringify(ids))
       console.log("Saved deleted booking IDs to localStorage:", ids)
     } catch (error) {
       console.error("Error saving deleted bookings to localStorage:", error)
@@ -75,16 +85,16 @@ export default function ManageBookings() {
       setLoading(true)
       const data = await getLandlordBookingRequests()
       console.log("Fetched bookings:", data)
-      
+
       // If deletedIds wasn't passed, get them from state or localStorage
       const idsToFilter = deletedIds || deletedBookingIds || loadDeletedBookings()
       console.log("Filtering out these booking IDs:", idsToFilter)
-      
+
       // Filter out any bookings that were previously deleted
       let bookingsToShow = Array.isArray(data) ? data : []
-      
+
       if (idsToFilter && idsToFilter.length > 0) {
-        bookingsToShow = bookingsToShow.filter(booking => {
+        bookingsToShow = bookingsToShow.filter((booking) => {
           const bookingId = booking._id || booking.id
           const shouldKeep = !idsToFilter.includes(bookingId)
           if (!shouldKeep) {
@@ -94,7 +104,7 @@ export default function ManageBookings() {
         })
         console.log(`Filtered out ${data.length - bookingsToShow.length} deleted bookings`)
       }
-      
+
       setBookings(bookingsToShow)
     } catch (err) {
       console.error("Error fetching bookings:", err)
@@ -166,26 +176,26 @@ export default function ManageBookings() {
       setClearingBookings(true)
 
       // Get all booking IDs to mark as deleted
-      const allBookingIds = bookings.map(booking => booking._id || booking.id)
+      const allBookingIds = bookings.map((booking) => booking._id || booking.id)
       console.log("Clearing all bookings with IDs:", allBookingIds)
-      
+
       if (allBookingIds.length === 0) {
         console.log("No bookings to clear")
         setClearingBookings(false)
         setShowClearConfirm(false)
         return
       }
-      
+
       // Get existing deleted IDs and add new ones
       const existingDeletedIds = loadDeletedBookings()
       const updatedDeletedIds = [...new Set([...existingDeletedIds, ...allBookingIds])]
-      
+
       // Save to localStorage
       saveDeletedBookings(updatedDeletedIds)
-      
+
       // Update state
       setDeletedBookingIds(updatedDeletedIds)
-      
+
       // Clear bookings from UI
       setBookings([])
       setShowClearConfirm(false)
@@ -213,21 +223,21 @@ export default function ManageBookings() {
 
     try {
       console.log(`Deleting booking with ID: ${bookingId}`)
-      
+
       // Get existing deleted IDs and add the new one
       const existingDeletedIds = loadDeletedBookings()
       const updatedDeletedIds = [...existingDeletedIds, bookingId]
-      
+
       // Save to localStorage
       saveDeletedBookings(updatedDeletedIds)
-      
+
       // Update state
       setDeletedBookingIds(updatedDeletedIds)
-      
+
       // Remove the booking from the UI
       setBookings((prevBookings) => prevBookings.filter((booking) => (booking._id || booking.id) !== bookingId))
       setShowDeleteConfirm(null)
-      
+
       console.log(`Booking ${bookingId} removed from view and stored in localStorage`)
     } catch (err) {
       console.error("Error deleting booking:", err)
@@ -270,14 +280,69 @@ export default function ManageBookings() {
     }
   }
 
-  const handleContactTenant = (tenant) => {
-    setCurrentTenant(tenant)
-    setShowChat(true)
+  const handleContactTenant = async (booking) => {
+    try {
+      console.log("Contact tenant clicked for booking:", booking)
+
+      // Store the selected booking
+      setSelectedBooking(booking)
+
+      // Get tenant ID from booking
+      const tenantId = booking.userId || booking.tenantId
+
+      if (!tenantId) {
+        console.error("No tenant ID found in booking:", booking)
+        alert("Could not identify tenant. Please try again.")
+        return
+      }
+
+      // Get property ID from booking
+      const propertyId = booking.propertyId
+
+      if (!propertyId) {
+        console.error("No property ID found in booking:", booking)
+        alert("Could not identify property. Please try again.")
+        return
+      }
+
+      // Set tenant name for display
+      setCurrentTenant(booking.name || "Tenant")
+
+      // Try to get or create a chat
+      console.log("Getting or creating chat for property:", propertyId, "and tenant:", tenantId)
+
+      try {
+        const chatData = await getChatByIdOrCreate(propertyId, tenantId, booking.propertyTitle || "Property Chat")
+
+        console.log("Chat data received:", chatData)
+
+        // Store chat ID
+        if (chatData && chatData._id) {
+          setChatId(chatData._id)
+          console.log("Chat ID set to:", chatData._id)
+        } else {
+          console.error("No chat ID received from API")
+          setChatId(null)
+        }
+
+        // Show chat
+        setShowChat(true)
+      } catch (chatError) {
+        console.error("Error getting/creating chat:", chatError)
+        setChatId(null)
+        setShowChat(true)
+      }
+    } catch (error) {
+      console.error("Error in handleContactTenant:", error)
+      alert("Failed to open chat. Please try again.")
+    }
   }
 
   const handleCloseChat = () => {
     setShowChat(false)
-    setSelectedTenant(null)
+    setCurrentTenant(null)
+    setChatId(null)
+    setSelectedBooking(null)
   }
 
   const handleViewProperty = (propertyId) => {
@@ -368,7 +433,10 @@ export default function ManageBookings() {
       ) : (
         <div className="bookings-list">
           {bookings.map((booking) => (
-            <div key={booking._id || booking.id} className={`booking-card ${expandedBooking === (booking._id || booking.id) ? "expanded" : ""}`}>
+            <div
+              key={booking._id || booking.id}
+              className={`booking-card ${expandedBooking === (booking._id || booking.id) ? "expanded" : ""}`}
+            >
               <div className="booking-header" onClick={() => handleExpandBooking(booking._id || booking.id)}>
                 <div className="booking-title">
                   <h3>{booking.propertyTitle}</h3>
@@ -382,18 +450,22 @@ export default function ManageBookings() {
                     <span className="response-date">Responded on {formatDate(booking.responseDate)}</span>
                   )}
                   <div className="booking-actions-compact">
-                    <button 
+                    <button
                       className="delete-booking-button"
                       onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteBooking(booking._id || booking.id);
+                        e.stopPropagation()
+                        handleDeleteBooking(booking._id || booking.id)
                       }}
                       title="Delete booking"
                     >
                       {showDeleteConfirm === (booking._id || booking.id) ? "Confirm" : <Trash2 size={16} />}
                     </button>
                   </div>
-                  {expandedBooking === (booking._id || booking.id) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  {expandedBooking === (booking._id || booking.id) ? (
+                    <ChevronUp size={20} />
+                  ) : (
+                    <ChevronDown size={20} />
+                  )}
                 </div>
               </div>
 
@@ -479,7 +551,7 @@ export default function ManageBookings() {
                   )}
 
                   <div className="contact-tenant">
-                    <button className="contact-button" onClick={() => handleContactTenant(booking.name)}>
+                    <button className="contact-button" onClick={() => handleContactTenant(booking)}>
                       <MessageCircle size={16} />
                       Contact Tenant
                     </button>
@@ -497,72 +569,28 @@ export default function ManageBookings() {
           ))}
         </div>
       )}
-      {showChat && (
-        <ChatBox onClose={() => setShowChat(false)} landlordName={currentTenant || "Tenant"} isLoggedIn={true} />
+
+      {showChat && selectedBooking && (
+        <div className="chat-overlay">
+          <div className="chat-container">
+            <ChatBox
+              onClose={handleCloseChat}
+              landlordName={currentTenant || "Tenant"}
+              landlordId={selectedBooking.userId || selectedBooking.tenantId}
+              propertyId={selectedBooking.propertyId}
+              propertyTitle={selectedBooking.propertyTitle || "Property"}
+              isLoggedIn={true}
+              currentUserId={currentUserId}
+              chatId={chatId}
+            />
+          </div>
+        </div>
       )}
 
       <style jsx>{`
-        /* New styles for delete button and cancel button */
-        .booking-actions-compact {
-          display: flex;
-          align-items: center;
-          margin-right: 10px;
-        }
         
-        .delete-booking-button {
-          background-color: #dc3545;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          padding: 4px 8px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-left: 10px;
-        }
-        
-        .delete-booking-button:hover {
-          background-color: #c82333;
-        }
-        
-        .cancel-button {
-          background-color: #f8d7da;
-          color: #721c24;
-          border: 1px solid #f5c6cb;
-          border-radius: 4px;
-          padding: 8px 16px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-weight: 500;
-          margin-top: 10px;
-        }
-        
-        .cancel-button:hover {
-          background-color: #f1b0b7;
-        }
-        
-        .response-field {
-          margin-top: 15px;
-          width: 100%;
-        }
-        
-        .response-field label {
-          display: block;
-          margin-bottom: 5px;
-          font-weight: 500;
-        }
-        
-        .response-field textarea {
-          width: 100%;
-          padding: 10px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          resize: vertical;
-        }
       `}</style>
     </div>
   )
 }
+

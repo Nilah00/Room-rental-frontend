@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import "./Home.css"
 import ChatBox from "./ChatBox"
+import ChatList from "./ChatList"
 import RentalMap from "./RentalMap"
 import Notifications from "./NotificationSystem"
 import { getImageUrl, handleImageError } from "./imageUtils"
@@ -32,6 +33,13 @@ import { getFeaturedProperties, getFavorites, getUserNotifications } from "../se
 // Fix the import to only include functions that exist
 import { isAuthenticated, logout } from "../services/auth" // Import validateUserRole
 import { initializeSocket, disconnectSocket } from "../services/socket"
+// Replace this line:
+// import { getUserChats } from "../services/chat"
+
+// With this line:
+import { getUserChats } from "../services/api"
+// Add this import at the top of the file
+import MessageNotification from "./MessageNotification"
 
 const HomePage = () => {
   const [searchParams, setSearchParams] = useState({
@@ -42,8 +50,11 @@ const HomePage = () => {
 
   const [favorites, setFavorites] = useState([])
   const [showChat, setShowChat] = useState(false)
+  const [showChatList, setShowChatList] = useState(false)
   const [currentLandlord, setCurrentLandlord] = useState("")
   const [currentLandlordId, setCurrentLandlordId] = useState("") // Add state for landlord ID
+  const [currentPropertyId, setCurrentPropertyId] = useState("") // Add state for property ID
+  const [currentPropertyTitle, setCurrentPropertyTitle] = useState("") // Add state for property title
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [username, setUsername] = useState("")
@@ -55,9 +66,13 @@ const HomePage = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [isLandlord, setIsLandlord] = useState(false)
   const [currentUserId, setCurrentUserId] = useState("") // Add state for current user ID
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  // Add this state near the other state declarations
+  const [messageNotifications, setMessageNotifications] = useState([])
 
   const navigate = useNavigate()
   const notificationRef = useRef(null)
+  const chatListRef = useRef(null)
 
   // Function to get featured property IDs from localStorage
   const getFeaturedIdsFromLocalStorage = () => {
@@ -100,10 +115,19 @@ const HomePage = () => {
             setIsLandlord(user.role === "landlord" || user.isLandlord === true)
 
             // Initialize socket connection for real-time notifications
-            initializeSocket()
+            const socket = initializeSocket()
+
+            // If socket initialization failed, try again after a short delay
+            if (!socket) {
+              setTimeout(() => {
+                console.log("Retrying socket initialization...")
+                initializeSocket()
+              }, 2000)
+            }
 
             // Fetch notifications count
             fetchNotificationsCount()
+            fetchUnreadMessagesCount()
           }
 
           try {
@@ -177,6 +201,10 @@ const HomePage = () => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setShowNotifications(false)
       }
+
+      if (chatListRef.current && !chatListRef.current.contains(event.target) && !event.target.closest(".chat-box")) {
+        setShowChatList(false)
+      }
     }
 
     document.addEventListener("mousedown", handleClickOutside)
@@ -186,13 +214,71 @@ const HomePage = () => {
       fetchNotificationsCount()
     }
 
+    // Update the handleNewMessage function in the useEffect to show a notification
+    // Find the handleNewMessage function and replace it with this:
+    const handleNewMessage = async (event) => {
+      // Update unread message count or show indicator
+      fetchNotificationsCount()
+      fetchUnreadMessagesCount()
+
+      // Show notification for new message
+      if (event.detail && event.detail.message) {
+        const { chatId, message } = event.detail
+
+        // Only show notification if the message is not from the current user
+        if (message.sender !== currentUserId) {
+          // Find the chat to get the sender's name
+          const chats = await getUserChats()
+          const chat = chats.find((c) => c._id === chatId)
+          const senderName = chat ? chat.otherParticipant?.name || "User" : "User"
+
+          // Add notification
+          const notification = {
+            id: Date.now(),
+            chatId,
+            sender: senderName,
+            content: message.content,
+          }
+
+          setMessageNotifications((prev) => [...prev, notification])
+
+          // Play notification sound if available
+          try {
+            const audio = new Audio("/notification.mp3")
+            audio.play().catch((e) => console.log("Error playing notification sound:", e))
+          } catch (e) {
+            console.log("Error with notification sound:", e)
+          }
+        }
+      }
+    }
+
     window.addEventListener("newNotification", handleNewNotification)
+    window.addEventListener("newMessage", handleNewMessage)
+    window.addEventListener("chatNotification", handleNewNotification)
 
     // Clean up event listeners and socket connection
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
       window.removeEventListener("newNotification", handleNewNotification)
+      window.removeEventListener("newMessage", handleNewMessage)
+      window.removeEventListener("chatNotification", handleNewNotification)
       disconnectSocket()
+    }
+  }, [])
+
+  // Add this function after the other useEffect hooks
+  useEffect(() => {
+    // Request notification permission if not already granted
+    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+      // Wait a bit before requesting permission to not overwhelm the user on first load
+      const timer = setTimeout(() => {
+        Notification.requestPermission().then((permission) => {
+          console.log("Notification permission:", permission)
+        })
+      }, 5000)
+
+      return () => clearTimeout(timer)
     }
   }, [])
 
@@ -206,6 +292,18 @@ const HomePage = () => {
       setUnreadNotifications(unreadCount)
     } catch (error) {
       console.error("Error fetching notifications count:", error)
+    }
+  }
+
+  const fetchUnreadMessagesCount = async () => {
+    try {
+      const chats = await getUserChats()
+      if (Array.isArray(chats)) {
+        const totalUnread = chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0)
+        setUnreadMessages(totalUnread)
+      }
+    } catch (error) {
+      console.error("Error fetching unread messages count:", error)
     }
   }
 
@@ -254,8 +352,8 @@ const HomePage = () => {
     navigate(`/booknow/${listing._id}`, { state: { roomDetails: listing } })
   }
 
-  // Updated function to check if user is the property owner
-  const handleChatWithLandlord = (landlordName, landlordId) => {
+  // Updated function to check if user is the property owner and include property details
+  const handleChatWithLandlord = (landlordName, landlordId, propertyId, propertyTitle) => {
     if (!isLoggedIn) {
       navigate("/login")
       return
@@ -268,9 +366,37 @@ const HomePage = () => {
       return
     }
 
+    // Validate required parameters
+    if (!landlordId) {
+      console.error("Missing landlordId in handleChatWithLandlord")
+      alert("Cannot start chat: Missing landlord information")
+      return
+    }
+
+    if (!propertyId) {
+      console.error("Missing propertyId in handleChatWithLandlord")
+      alert("Cannot start chat: Missing property information")
+      return
+    }
+
+    console.log("Starting chat with:", {
+      landlordName,
+      landlordId,
+      propertyId,
+      propertyTitle,
+    })
+
     setCurrentLandlord(landlordName)
-    setCurrentLandlordId(landlordId) // Store the landlord ID
+    setCurrentLandlordId(landlordId)
+    setCurrentPropertyId(propertyId)
+    setCurrentPropertyTitle(propertyTitle || "Property Chat") // Provide default if missing
     setShowChat(true)
+    setShowChatList(false) // Close chat list if open
+  }
+
+  const toggleChatList = () => {
+    // Navigate to messages page instead of showing modal
+    navigate("/messages")
   }
 
   const handleLogout = () => {
@@ -349,6 +475,21 @@ const HomePage = () => {
     if (!showNotifications) {
       setUnreadNotifications(0)
     }
+
+    // Close chat list if open
+    if (showChatList) {
+      setShowChatList(false)
+    }
+
+    // Close chat box if open
+    if (showChat) {
+      setShowChat(false)
+    }
+  }
+
+  // Add this function to remove a notification
+  const removeNotification = (id) => {
+    setMessageNotifications((prev) => prev.filter((notification) => notification.id !== id))
   }
 
   if (isLoading) {
@@ -414,9 +555,19 @@ const HomePage = () => {
                     <Notifications isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
                   )}
                 </div>
-                <Link to="/messages" className="icon-link">
-                  <MessageCircle size={20} />
-                </Link>
+                <div className="chat-icon-wrapper" ref={chatListRef}>
+                  <button className="icon-link" onClick={toggleChatList}>
+                    <MessageCircle size={20} />
+                    {unreadMessages > 0 && <span className="notification-badge">{unreadMessages}</span>}
+                  </button>
+                  {showChatList && (
+                    <ChatList
+                      isOpen={showChatList}
+                      onClose={() => setShowChatList(false)}
+                      currentUserId={currentUserId}
+                    />
+                  )}
+                </div>
               </div>
               {isLoggedIn ? (
                 <div className="user-menu">
@@ -440,7 +591,7 @@ const HomePage = () => {
                           Booking Requests
                         </Link>
                       )}
-                      <button onClick={handleLogout} className="dropdown-item">
+                      <button onClick={handleLogout} className="dropdown-item logout-btn">
                         Logout
                       </button>
                     </div>
@@ -627,13 +778,15 @@ const HomePage = () => {
                             ? "Booked" // Show "Booked" instead of "Reserved"
                             : listing.status}
                       </button>
-                      {/* Updated button to pass landlord ID */}
+                      {/* Updated button to pass property details */}
                       <button
                         className="btn btn-chat"
                         onClick={() =>
                           handleChatWithLandlord(
                             listing.owner?.name || "Landlord",
                             listing.owner?.id || listing.owner?._id || listing.landlordId,
+                            listing._id || listing.id,
+                            listing.title,
                           )
                         }
                       >
@@ -841,10 +994,20 @@ const HomePage = () => {
         <ChatBox
           onClose={() => setShowChat(false)}
           landlordName={currentLandlord}
-          landlordId={currentLandlordId} // Pass landlord ID to ChatBox
+          landlordId={currentLandlordId}
+          propertyId={currentPropertyId}
+          propertyTitle={currentPropertyTitle}
           isLoggedIn={isLoggedIn}
+          currentUserId={currentUserId}
         />
       )}
+      {messageNotifications.map((notification) => (
+        <MessageNotification
+          key={notification.id}
+          notification={notification}
+          onClose={() => removeNotification(notification.id)}
+        />
+      ))}
     </div>
   )
 }

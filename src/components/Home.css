@@ -1720,8 +1720,12 @@ body {
   cursor: pointer;
   font-family: inherit;
   font-size: 0.9rem;
-  color: var(--danger);
+  color: black;
   font-weight: 600;
+}
+
+.logout-btn {
+  color: red;
 }
 
 .logout-button:hover {

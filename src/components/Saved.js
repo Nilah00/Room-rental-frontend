@@ -25,9 +25,13 @@ const Saved = () => {
   const [savedListings, setSavedListings] = useState([])
   const [showChat, setShowChat] = useState(false)
   const [currentLandlord, setCurrentLandlord] = useState("")
+  const [currentLandlordId, setCurrentLandlordId] = useState("") // Add state for landlord ID
+  const [currentPropertyId, setCurrentPropertyId] = useState("") // Add state for property ID
+  const [currentPropertyTitle, setCurrentPropertyTitle] = useState("") // Add state for property title
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [username, setUsername] = useState("")
+  const [currentUserId, setCurrentUserId] = useState("") // Add state for current user ID
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -36,6 +40,8 @@ const Saved = () => {
     if (token && storedUser) {
       setIsLoggedIn(true)
       setUsername(storedUser.name)
+      // Store the current user ID
+      setCurrentUserId(storedUser.id || storedUser._id)
       const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
       setSavedListings(storedFavorites)
     } else {
@@ -71,12 +77,49 @@ const Saved = () => {
     navigate("/")
   }
 
-  const handleChatWithLandlord = (landlordName) => {
+  // Updated function to handle chat with landlord
+  const handleChatWithLandlord = (listing) => {
     if (!isLoggedIn) {
       navigate("/login")
       return
     }
-    setCurrentLandlord(landlordName)
+
+    // Check if current user is the landlord
+    const landlordId = listing.owner?.id || listing.owner?._id || listing.landlordId
+    if (currentUserId === landlordId) {
+      // Use regular alert since ErrorModal is not available
+      alert("You cannot chat with yourself as this is your own property.")
+      return
+    }
+
+    // Validate required parameters
+    if (!landlordId) {
+      console.error("Missing landlordId in handleChatWithLandlord")
+      alert("Cannot start chat: Missing landlord information")
+      return
+    }
+
+    const propertyId = listing.id || listing._id
+    if (!propertyId) {
+      console.error("Missing propertyId in handleChatWithLandlord")
+      alert("Cannot start chat: Missing property information")
+      return
+    }
+
+    console.log("Starting chat with:", {
+      landlordName: listing.owner?.name || "Landlord",
+      landlordId,
+      propertyId,
+      propertyTitle: listing.title,
+    })
+
+    // Set all the necessary state variables
+    setCurrentLandlord(listing.owner?.name || "Landlord")
+    setCurrentLandlordId(landlordId)
+    setCurrentPropertyId(propertyId)
+    setCurrentPropertyTitle(listing.title)
+
+    // Show the chat box
     setShowChat(true)
   }
 
@@ -254,10 +297,7 @@ const Saved = () => {
                       >
                         {listing.status === "Available" || !listing.status ? "Book Now" : listing.status}
                       </button>
-                      <button
-                        className="btn btn-chat"
-                        onClick={() => handleChatWithLandlord(listing.owner?.name || "Landlord")}
-                      >
+                      <button className="btn btn-chat" onClick={() => handleChatWithLandlord(listing)}>
                         <MessageCircle size={16} /> Chat with landlord
                       </button>
                       <button
@@ -275,7 +315,15 @@ const Saved = () => {
         </div>
       </section>
       {showChat && (
-        <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} isLoggedIn={isLoggedIn} />
+        <ChatBox
+          onClose={() => setShowChat(false)}
+          landlordName={currentLandlord}
+          landlordId={currentLandlordId}
+          propertyId={currentPropertyId}
+          propertyTitle={currentPropertyTitle}
+          isLoggedIn={isLoggedIn}
+          currentUserId={currentUserId}
+        />
       )}
     </div>
   )

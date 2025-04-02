@@ -1,0 +1,67 @@
+.property-location-map-container {
+    margin: 2rem 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .map-title {
+    padding: 1rem;
+    margin: 0;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+  
+  .property-map {
+    height: 400px;
+    width: 100%;
+  }
+  
+  .no-map {
+    height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f8f9fa;
+    border: 1px dashed #ced4da;
+    border-radius: 8px;
+  }
+  
+  .no-location-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #6c757d;
+    text-align: center;
+    padding: 1rem;
+  }
+  
+  .no-location-message svg {
+    margin-bottom: 0.5rem;
+    color: #adb5bd;
+  }
+  
+  .map-popup {
+    padding: 0.5rem;
+    max-width: 200px;
+  }
+  
+  .map-popup h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+  }
+  
+  .map-popup p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+  
+  @media (max-width: 768px) {
+    .property-map {
+      height: 300px;
+    }
+  }
+  
+  

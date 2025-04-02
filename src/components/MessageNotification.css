@@ -1,0 +1,88 @@
+.message-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 12px;
+    z-index: 1100;
+    display: flex;
+    align-items: flex-start;
+    transition: opacity 0.3s, transform 0.3s;
+    opacity: 0;
+    transform: translateY(-20px);
+    pointer-events: auto;
+  }
+  
+  .message-notification.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .message-notification.hidden {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  
+  .message-notification-content {
+    display: flex;
+    flex: 1;
+    cursor: pointer;
+  }
+  
+  .message-notification-avatar {
+    margin-right: 12px;
+  }
+  
+  .message-notification-avatar .avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e0e0e0;
+  }
+  
+  .message-notification-text {
+    flex: 1;
+  }
+  
+  .message-notification-text h4 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .message-notification-text p {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+  
+  .message-notification-close {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 8px;
+  }
+  
+  .message-notification-close:hover {
+    color: #666;
+  }
+  
+  @media (max-width: 768px) {
+    .message-notification {
+      width: calc(100% - 40px);
+      top: 10px;
+      right: 10px;
+      left: 10px;
+    }
+  }
+  
+  

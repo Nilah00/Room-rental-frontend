@@ -7,6 +7,7 @@ import { getProperties, getPropertyById } from "../services/api"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import { isAuthenticated } from "../services/auth"
 import ChatBox from "./ChatBox"
+import PropertyLocationMap from "./RoomMap"
 import "./RoomDetail.css"
 
 const RoomDetail = () => {
@@ -21,6 +22,10 @@ const RoomDetail = () => {
   const [relatedRooms, setRelatedRooms] = useState([])
   const [isLoadingRelated, setIsLoadingRelated] = useState(false)
   const [activeChatRoom, setActiveChatRoom] = useState(null)
+  const [currentUserId, setCurrentUserId] = useState("") // Add state for current user ID
+  const [currentLandlordId, setCurrentLandlordId] = useState("") // Add state for landlord ID
+  const [currentPropertyId, setCurrentPropertyId] = useState("") // Add state for property ID
+  const [currentPropertyTitle, setCurrentPropertyTitle] = useState("") // Add state for property title
   const { id } = useParams()
   const navigate = useNavigate()
 
@@ -122,6 +127,22 @@ const RoomDetail = () => {
     const checkAuth = () => {
       const authStatus = isAuthenticated()
       setIsLoggedIn(authStatus)
+
+      // Get current user ID from token
+      if (authStatus) {
+        try {
+          const token = localStorage.getItem("token")
+          if (token) {
+            const payload = token.split(".")[1]
+            if (payload) {
+              const decodedPayload = JSON.parse(atob(payload))
+              setCurrentUserId(decodedPayload.userId || decodedPayload.id || decodedPayload.sub)
+            }
+          }
+        } catch (error) {
+          console.error("Error getting user ID from token:", error)
+        }
+      }
     }
 
     checkAuth()
@@ -207,18 +228,54 @@ const RoomDetail = () => {
     navigate(`/booknow/${id}`, { state: { roomDetails: room } })
   }
 
+  // Updated function to handle chat with landlord
   const handleChatWithLandlord = (relatedRoom = null) => {
     if (!isLoggedIn) {
       navigate("/login")
       return
     }
 
-    if (relatedRoom) {
-      setActiveChatRoom(relatedRoom)
-    } else {
-      setActiveChatRoom(null)
+    // Determine which room to use (related room or main room)
+    const targetRoom = relatedRoom || room
+
+    // Check if current user is the landlord
+    const landlordId = targetRoom.owner?.id || targetRoom.owner?._id || targetRoom.landlordId
+    if (currentUserId === landlordId) {
+      // Use regular alert since ErrorModal is not available
+      alert("You cannot chat with yourself as this is your own property.")
+      return
     }
 
+    // Validate required parameters
+    if (!landlordId) {
+      console.error("Missing landlordId in handleChatWithLandlord")
+      alert("Cannot start chat: Missing landlord information")
+      return
+    }
+
+    const propertyId = targetRoom._id || targetRoom.id
+    if (!propertyId) {
+      console.error("Missing propertyId in handleChatWithLandlord")
+      alert("Cannot start chat: Missing property information")
+      return
+    }
+
+    console.log("Starting chat with:", {
+      landlordName: targetRoom.owner?.name || "Landlord",
+      landlordId,
+      propertyId,
+      propertyTitle: targetRoom.title,
+    })
+
+    // Set the active chat room if it's a related room
+    setActiveChatRoom(relatedRoom)
+
+    // Set all the necessary state variables
+    setCurrentLandlordId(landlordId)
+    setCurrentPropertyId(propertyId)
+    setCurrentPropertyTitle(targetRoom.title)
+
+    // Show the chat box
     setShowChat(true)
   }
 
@@ -394,6 +451,9 @@ const RoomDetail = () => {
           </div>
         </div>
 
+        {/* Property Location Map */}
+        <PropertyLocationMap property={room} />
+
         {/* Similar Properties Section */}
         {relatedRooms.length > 0 && (
           <div className="related-rooms-section">
@@ -513,7 +573,15 @@ const RoomDetail = () => {
         <ChatBox
           onClose={() => setShowChat(false)}
           landlordName={activeChatRoom?.owner?.name || room.owner?.name || "Landlord"}
+          landlordId={
+            activeChatRoom
+              ? activeChatRoom.owner?.id || activeChatRoom.owner?._id || activeChatRoom.landlordId
+              : room.owner?.id || room.owner?._id || room.landlordId
+          }
+          propertyId={activeChatRoom ? activeChatRoom._id || activeChatRoom.id : room._id || room.id}
+          propertyTitle={activeChatRoom ? activeChatRoom.title : room.title}
           isLoggedIn={isLoggedIn}
+          currentUserId={currentUserId}
         />
       )}
     </div>

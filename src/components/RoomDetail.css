@@ -201,9 +201,6 @@
   filter: brightness(1.1) contrast(1.1);
 }
 
-.room-video video::-webkit-media-controls {
-  background-color: rgba(0, 0, 0, 0.7);
-}
 
 /* Room Info Styles */
 .room-info {

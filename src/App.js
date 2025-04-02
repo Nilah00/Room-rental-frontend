@@ -16,20 +16,38 @@ import AdminDashboard from "./components/dashboard"
 import ProtectedRoute from "./components/ProtectedRoute"
 import ManageBookings from "./components/ManageBookings"
 import Notifications from "./components/NotificationSystem"
+import MessagesPage from "./components/MessagesPage"
 
 function App() {
   return (
     <Router>
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<Home />} /> {/* Make homepage public */}
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
-        <Route path="/rooms" element={<ViewAllRooms />} /> {/* Make rooms page public */}
-        <Route path="/room/:id" element={<RoomDetail />} /> {/* Make room detail page public */}
-        {/* Protected user routes */}
+        <Route path="/rooms" element={<ViewAllRooms />} />
+        <Route path="/room/:id" element={<RoomDetail />} />
+
+        {/* Protected routes */}
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute requireAdmin={false}>
+              <MessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/messages/:chatId"
+          element={
+            <ProtectedRoute requireAdmin={false}>
+              <MessagesPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/add-property"
           element={

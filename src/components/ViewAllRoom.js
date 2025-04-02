@@ -20,9 +20,13 @@ function ViewAllRooms() {
   const [filteredRooms, setFilteredRooms] = useState([])
   const [showChat, setShowChat] = useState(false)
   const [currentLandlord, setCurrentLandlord] = useState("")
+  const [currentLandlordId, setCurrentLandlordId] = useState("") // Add state for landlord ID
+  const [currentPropertyId, setCurrentPropertyId] = useState("") // Add state for property ID
+  const [currentPropertyTitle, setCurrentPropertyTitle] = useState("") // Add state for property title
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState("") // Add state for current user ID
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -30,6 +34,19 @@ function ViewAllRooms() {
   useEffect(() => {
     const token = localStorage.getItem("token")
     setIsLoggedIn(!!token)
+
+    // Get current user ID from token
+    if (token) {
+      try {
+        const payload = token.split(".")[1]
+        if (payload) {
+          const decodedPayload = JSON.parse(atob(payload))
+          setCurrentUserId(decodedPayload.userId || decodedPayload.id || decodedPayload.sub)
+        }
+      } catch (error) {
+        console.error("Error getting user ID from token:", error)
+      }
+    }
   }, [])
 
   const handleSearch = useCallback(() => {
@@ -147,12 +164,44 @@ function ViewAllRooms() {
     navigate(`/booknow/${room._id}`, { state: { roomDetails: room } })
   }
 
-  const handleChatWithLandlord = (landlordName) => {
+  // Updated function to handle chat with landlord
+  const handleChatWithLandlord = (landlordName, landlordId, propertyId, propertyTitle) => {
     if (!isLoggedIn) {
       navigate("/login")
       return
     }
+
+    // Check if current user is the landlord
+    if (currentUserId === landlordId) {
+      // Use regular alert since ErrorModal is not available
+      alert("You cannot chat with yourself as this is your own property.")
+      return
+    }
+
+    // Validate required parameters
+    if (!landlordId) {
+      console.error("Missing landlordId in handleChatWithLandlord")
+      alert("Cannot start chat: Missing landlord information")
+      return
+    }
+
+    if (!propertyId) {
+      console.error("Missing propertyId in handleChatWithLandlord")
+      alert("Cannot start chat: Missing property information")
+      return
+    }
+
+    console.log("Starting chat with:", {
+      landlordName,
+      landlordId,
+      propertyId,
+      propertyTitle,
+    })
+
     setCurrentLandlord(landlordName)
+    setCurrentLandlordId(landlordId)
+    setCurrentPropertyId(propertyId)
+    setCurrentPropertyTitle(propertyTitle || "Property Chat") // Provide default if missing
     setShowChat(true)
   }
 
@@ -302,7 +351,14 @@ function ViewAllRooms() {
                   </button>
                   <button
                     className="btn btn-chat"
-                    onClick={() => handleChatWithLandlord(room.owner?.name || "Landlord")}
+                    onClick={() =>
+                      handleChatWithLandlord(
+                        room.owner?.name || "Landlord",
+                        room.owner?.id || room.owner?._id || room.landlordId,
+                        room._id,
+                        room.title,
+                      )
+                    }
                   >
                     <MessageCircle size={16} /> Chat with landlord
                   </button>
@@ -322,7 +378,15 @@ function ViewAllRooms() {
         </div>
       </div>
       {showChat && (
-        <ChatBox onClose={() => setShowChat(false)} landlordName={currentLandlord} isLoggedIn={isLoggedIn} />
+        <ChatBox
+          onClose={() => setShowChat(false)}
+          landlordName={currentLandlord}
+          landlordId={currentLandlordId}
+          propertyId={currentPropertyId}
+          propertyTitle={currentPropertyTitle}
+          isLoggedIn={isLoggedIn}
+          currentUserId={currentUserId}
+        />
       )}
     </div>
   )
