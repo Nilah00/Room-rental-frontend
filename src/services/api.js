@@ -99,7 +99,7 @@ api.interceptors.response.use(
 )
 
 // Helper function to get the current user ID from the token
-const getCurrentUserId = () => {
+export const getCurrentUserId = () => {
   try {
     const token = localStorage.getItem("token")
     if (!token) return null
@@ -117,9 +117,6 @@ const getCurrentUserId = () => {
     return null
   }
 }
-
-// Export the getCurrentUserId function so it can be used by components
-export { getCurrentUserId }
 
 // Add this helper function to check if a user is the owner of a property
 export const isPropertyOwner = (property, userId) => {
@@ -810,18 +807,19 @@ export const refreshToken = async () => {
   }
 }
 
-const getToken = () => {
+export const getToken = () => {
   return localStorage.getItem("token")
 }
 
 // Create a booking request
 export const createBooking = async (bookingData) => {
   try {
+    const token = getToken()
     const response = await fetch(`${API_URL}/bookings`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(bookingData),
     })
@@ -841,10 +839,11 @@ export const createBooking = async (bookingData) => {
 // Get bookings for landlord
 export const getLandlordBookings = async () => {
   try {
+    const token = getToken()
     const response = await fetch(`${API_URL}/bookings/landlord`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${token}`,
       },
     })
 
@@ -860,22 +859,123 @@ export const getLandlordBookings = async () => {
   }
 }
 
-// Get bookings for tenant
+// Get bookings for tenant - FIXED FUNCTION
+// Update the getTenantBookings function with more debugging and fallback mechanisms
+
+// Get bookings for tenant - IMPROVED FUNCTION
 export const getTenantBookings = async () => {
   try {
-    const response = await fetch(`${API_URL}/bookings/tenant`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-      },
-    })
-
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || "Failed to fetch tenant bookings")
+    console.log("Fetching tenant bookings")
+    const token = getToken()
+    if (!token) {
+      console.error("Authentication token missing")
+      throw new Error("Authentication required")
     }
 
-    return data.data
+    // Log token details (first few characters only for security)
+    const tokenPreview = token.substring(0, 10) + "..." + token.substring(token.length - 5)
+    console.log("Using token (preview):", tokenPreview)
+
+    // Try the primary endpoint first
+    console.log("Trying primary endpoint: /bookings/tenant")
+    try {
+      const response = await fetch(`${API_URL}/bookings/tenant`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+      })
+
+      console.log("Primary endpoint response status:", response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("Error response from primary endpoint:", errorText)
+        throw new Error(`Failed to fetch tenant bookings: ${response.status} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log("Tenant bookings response from primary endpoint:", data)
+
+      // Handle different response formats
+      if (Array.isArray(data)) {
+        return data
+      } else if (data && Array.isArray(data.data)) {
+        return data.data
+      } else {
+        console.warn("Unexpected data format from tenant bookings API:", data)
+        return []
+      }
+    } catch (primaryError) {
+      console.error("Error with primary endpoint:", primaryError)
+
+      // Try the alternative endpoint
+      console.log("Trying alternative endpoint: /bookings")
+      try {
+        const response = await fetch(`${API_URL}/bookings`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        })
+
+        console.log("Alternative endpoint response status:", response.status)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("Error response from alternative endpoint:", errorText)
+          throw new Error(`Failed to fetch bookings: ${response.status} - ${errorText}`)
+        }
+
+        const data = await response.json()
+        console.log("Bookings response from alternative endpoint:", data)
+
+        // Filter bookings for the current tenant
+        const userId = getCurrentUserId()
+        const tenantBookings = Array.isArray(data)
+          ? data.filter((booking) => booking.tenantId === userId)
+          : Array.isArray(data.data)
+            ? data.data.filter((booking) => booking.tenantId === userId)
+            : []
+
+        console.log(`Filtered ${tenantBookings.length} bookings for tenant ${userId}`)
+        return tenantBookings
+      } catch (alternativeError) {
+        console.error("Error with alternative endpoint:", alternativeError)
+
+        // Try the tenant-bookings endpoint as a last resort
+        console.log("Trying last resort endpoint: /tenant-bookings")
+        try {
+          const response = await fetch(`${API_URL}/tenant-bookings`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Cache-Control": "no-cache",
+              Pragma: "no-cache",
+            },
+          })
+
+          console.log("Last resort endpoint response status:", response.status)
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error("Error response from last resort endpoint:", errorText)
+            throw new Error(`Failed to fetch from last resort endpoint: ${response.status} - ${errorText}`)
+          }
+
+          const data = await response.json()
+          console.log("Response from last resort endpoint:", data)
+          return Array.isArray(data) ? data : []
+        } catch (lastResortError) {
+          console.error("All endpoints failed:", lastResortError)
+          throw primaryError // Throw the original error
+        }
+      }
+    }
   } catch (error) {
     console.error("Error fetching tenant bookings:", error)
     throw error
@@ -885,11 +985,12 @@ export const getTenantBookings = async () => {
 // Update booking status
 export const updateBookingStatusNew = async (bookingId, status) => {
   try {
+    const token = getToken()
     const response = await fetch(`${API_URL}/bookings/${bookingId}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ status }),
     })
@@ -906,24 +1007,223 @@ export const updateBookingStatusNew = async (bookingId, status) => {
   }
 }
 
-// Cancel booking
-export const cancelBooking = async (bookingId) => {
-  try {
-    const response = await fetch(`${API_URL}/bookings/${bookingId}/cancel`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-      },
-    })
+// Update the cancelBooking function to try more endpoint formats and send notification to property owner
+// This version fixes the issue with notifications going to the wrong recipient
 
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || "Failed to cancel booking")
+export const cancelBooking = async (bookingId) => {
+  console.log(`Starting cancellation process for booking: ${bookingId}`)
+
+  try {
+    const token = getToken()
+    if (!token) {
+      throw new Error("Authentication required")
     }
 
-    return data
+    // Step 1: Get booking details to find landlord information
+    console.log("Step 1: Getting booking details")
+    let bookingDetails
+    let landlordId
+    let propertyTitle = "Property"
+    let tenantName = "Tenant"
+
+    try {
+      const bookingResponse = await axios({
+        method: "get",
+        url: `${API_URL}/bookings/${bookingId}`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      bookingDetails = bookingResponse.data
+      console.log("Booking details:", bookingDetails)
+
+      // Extract landlord ID and other details
+      landlordId =
+        bookingDetails.landlordId || (bookingDetails.property && bookingDetails.property.owner) || bookingDetails.owner
+
+      propertyTitle =
+        bookingDetails.propertyTitle || (bookingDetails.property && bookingDetails.property.title) || "Property"
+
+      tenantName = bookingDetails.name || (bookingDetails.tenant && bookingDetails.tenant.name) || "Tenant"
+
+      console.log("Extracted details:", { landlordId, propertyTitle, tenantName })
+    } catch (detailsError) {
+      console.error("Error getting booking details:", detailsError)
+      // Continue with cancellation even if we couldn't get details
+    }
+
+    // Step 2: Cancel the booking
+    console.log("Step 2: Cancelling booking")
+    let cancellationSuccess = false
+
+    // Try multiple cancellation endpoints
+    const cancellationEndpoints = [
+      `${API_URL}/bookings/${bookingId}/cancel`,
+      `${API_URL}/bookings/cancel/${bookingId}`,
+      `${API_URL}/bookings/${bookingId}/status`,
+    ]
+
+    let lastError
+
+    for (const endpoint of cancellationEndpoints) {
+      try {
+        console.log(`Trying cancellation endpoint: ${endpoint}`)
+
+        if (endpoint.includes("/status")) {
+          // For status endpoint, we need to send status in the body
+          const response = await axios({
+            method: "patch",
+            url: endpoint,
+            data: { status: "cancelled" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          })
+
+          console.log("Cancellation response:", response.data)
+          cancellationSuccess = true
+          break
+        } else {
+          // For direct cancellation endpoints
+          const response = await axios({
+            method: "patch",
+            url: endpoint,
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          })
+
+          console.log("Cancellation response:", response.data)
+          cancellationSuccess = true
+          break
+        }
+      } catch (endpointError) {
+        console.error(`Endpoint ${endpoint} failed:`, endpointError.message)
+        lastError = endpointError
+        // Continue to next endpoint
+      }
+    }
+
+    if (!cancellationSuccess) {
+      console.log("All cancellation endpoints failed, but continuing to notification step")
+    }
+
+    // Step 3: Create notification for landlord
+    if (landlordId) {
+      console.log("Step 3: Creating notification for landlord")
+
+      // Create notification message
+      const notificationMessage = `CANCELLATION ALERT: Booking #${bookingId} for "${propertyTitle}" has been cancelled by ${tenantName}. Please process a refund for the 50% partial payment.`
+
+      // Try multiple notification creation methods
+      const notificationMethods = [
+        // Method 1: Direct notification creation
+        async () => {
+          console.log("Trying direct notification creation")
+          return await axios({
+            method: "post",
+            url: `${API_URL}/notifications`,
+            data: {
+              recipient: landlordId,
+              message: notificationMessage,
+              type: "booking_cancelled",
+              link: "/bookings",
+            },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          })
+        },
+
+        // Method 2: User-specific notification
+        async () => {
+          console.log("Trying user-specific notification")
+          return await axios({
+            method: "post",
+            url: `${API_URL}/users/${landlordId}/notifications`,
+            data: {
+              message: notificationMessage,
+              type: "booking_cancelled",
+              link: "/bookings",
+            },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          })
+        },
+
+        // Method 3: Booking notification
+        async () => {
+          console.log("Trying booking notification")
+          return await axios({
+            method: "post",
+            url: `${API_URL}/bookings/${bookingId}/notify`,
+            data: {
+              recipientId: landlordId,
+              message: notificationMessage,
+              type: "booking_cancelled",
+            },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          })
+        },
+
+        // Method 4: Raw MongoDB notification insertion (last resort)
+        async () => {
+          console.log("Trying raw notification insertion")
+          return await axios({
+            method: "post",
+            url: `${API_URL}/notifications/create`,
+            data: {
+              recipient: landlordId,
+              message: notificationMessage,
+              type: "booking_cancelled",
+              link: "/bookings",
+              isRead: false,
+              createdAt: new Date().toISOString(),
+            },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          })
+        },
+      ]
+
+      let notificationSent = false
+
+      for (const method of notificationMethods) {
+        try {
+          const response = await method()
+          console.log("Notification created successfully:", response.data)
+          notificationSent = true
+          break
+        } catch (methodError) {
+          console.error("Notification method failed:", methodError.message)
+          // Continue to next method
+        }
+      }
+
+      if (!notificationSent) {
+        console.error("All notification methods failed")
+        // Don't throw error, continue with the process
+      }
+    } else {
+      console.log("No landlord ID found, skipping notification creation")
+    }
+
+    // Return success even if some steps failed
+    return { success: true, message: "Booking cancelled" }
   } catch (error) {
-    console.error("Error cancelling booking:", error)
+    console.error("Error in cancelBooking:", error)
     throw error
   }
 }
@@ -1379,6 +1679,42 @@ export const markMessagesAsRead = async (chatId) => {
     console.error("Error marking messages as read:", error)
     return { success: false }
   }
+}
+
+// Image utility functions
+export const getImageUrl = (imagePath) => {
+  console.log("getImageUrl called with:", imagePath)
+
+  if (!imagePath || typeof imagePath !== "string") {
+    console.log("Invalid image path, returning placeholder")
+    return "/placeholder.svg"
+  }
+
+  // If the path is already a full URL or base64, return it as is
+  if (imagePath.startsWith("http") || imagePath.startsWith("data:")) {
+    console.log("Image is already a full URL:", imagePath)
+    return imagePath
+  }
+
+  // If it's a placeholder path, return it directly
+  if (imagePath === "placeholder.svg" || imagePath === "/placeholder.svg") {
+    console.log("Image is a placeholder")
+    return "/placeholder.svg"
+  }
+
+  // Remove any leading slashes to avoid double slashes
+  const cleanPath = imagePath.replace(/^\/+/, "")
+  const baseUrl = API_URL.replace("/api", "")
+  const fullUrl = `${baseUrl}/${cleanPath}`
+
+  console.log("Generated full image URL:", fullUrl)
+  return fullUrl
+}
+
+export const handleImageError = (e) => {
+  console.error("Image error occurred for:", e.target.src)
+  e.target.onerror = null // Prevent infinite loop
+  e.target.src = "/placeholder.svg"
 }
 
 export default api

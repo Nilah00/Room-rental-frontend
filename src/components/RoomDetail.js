@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useParams, Link, useNavigate } from "react-router-dom"
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom"
 import { MessageCircle, MapPin, Badge, Eye, Bed, Bath, Wifi, Car, Droplet, Heart } from "lucide-react"
 import { getProperties, getPropertyById } from "../services/api"
 import { getImageUrl, handleImageError } from "./imageUtils"
@@ -22,12 +22,21 @@ const RoomDetail = () => {
   const [relatedRooms, setRelatedRooms] = useState([])
   const [isLoadingRelated, setIsLoadingRelated] = useState(false)
   const [activeChatRoom, setActiveChatRoom] = useState(null)
-  const [currentUserId, setCurrentUserId] = useState("") // Add state for current user ID
-  const [currentLandlordId, setCurrentLandlordId] = useState("") // Add state for landlord ID
-  const [currentPropertyId, setCurrentPropertyId] = useState("") // Add state for property ID
-  const [currentPropertyTitle, setCurrentPropertyTitle] = useState("") // Add state for property title
+  const [currentUserId, setCurrentUserId] = useState("")
+  const [currentLandlordId, setCurrentLandlordId] = useState("")
+  const [currentPropertyId, setCurrentPropertyId] = useState("")
+  const [currentPropertyTitle, setCurrentPropertyTitle] = useState("")
+  const [fromBookings, setFromBookings] = useState(false)
+  const [bookingId, setBookingId] = useState(null)
+
   const { id } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
+
+  // Check if we have property data from the Bookings page
+  const propertyFromState = location.state?.property
+  const bookingIdFromState = location.state?.bookingId
+  const isFromBookings = location.state?.fromBookings
 
   // Load favorites from localStorage
   const loadFavorites = useCallback(() => {
@@ -44,8 +53,21 @@ const RoomDetail = () => {
 
     setIsLoading(true)
     setError(null)
+
+    // If we have property data from the Bookings page, use it
+    if (propertyFromState && isFromBookings) {
+      console.log("Using property data from Bookings page:", propertyFromState)
+      setRoom(propertyFromState)
+      setFromBookings(true)
+      setBookingId(bookingIdFromState)
+      setIsLoading(false)
+      return
+    }
+
     try {
+      console.log("Fetching property data for ID:", id)
       const roomData = await getPropertyById(id)
+      console.log("Fetched room data:", roomData)
       setRoom(roomData)
     } catch (err) {
       console.error("Error fetching room data:", err)
@@ -53,7 +75,7 @@ const RoomDetail = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [id])
+  }, [id, propertyFromState, isFromBookings, bookingIdFromState])
 
   // Fetch related rooms based on location
   const fetchRelatedRooms = useCallback(async () => {
@@ -323,6 +345,11 @@ const RoomDetail = () => {
     navigate(`/booknow/${relatedRoom._id || relatedRoom.id}`, { state: { roomDetails: relatedRoom } })
   }
 
+  // Function to go back to bookings
+  const handleBackToBookings = () => {
+    navigate("/bookings")
+  }
+
   if (isLoading) return <div className="loading">Loading room details...</div>
   if (error) return <div className="error">{error}</div>
   if (!room) return <div className="not-found">Room not found</div>
@@ -330,9 +357,16 @@ const RoomDetail = () => {
   return (
     <div className="room-detail-page">
       <div className="container">
-        <Link to="/" className="btn btn-secondary back-to-home">
-          Back to Home
-        </Link>
+        {fromBookings ? (
+          <button onClick={handleBackToBookings} className="btn btn-secondary back-to-home">
+            Back to Bookings
+          </button>
+        ) : (
+          <Link to="/" className="btn btn-secondary back-to-home">
+            Back to Home
+          </Link>
+        )}
+
         <h1>{room.title}</h1>
 
         {/* Display room status */}
@@ -342,6 +376,13 @@ const RoomDetail = () => {
           <Badge size={14} />
           <span>{room.status || "Available"}</span>
         </div>
+
+        {/* Display booking ID if coming from bookings page */}
+        {fromBookings && bookingId && (
+          <div className="booking-reference">
+            <span>Booking Reference: {bookingId}</span>
+          </div>
+        )}
 
         <div className="room-detail-content">
           <div className="room-main-content">
@@ -402,7 +443,7 @@ const RoomDetail = () => {
               <MapPin size={20} />
               {room.location}
             </p>
-            <p className="room-price">Rs {room.price.toLocaleString()}/month</p>
+            <p className="room-price">Rs {room.price?.toLocaleString() || "N/A"}/month</p>
             <p className="room-furnished">{room.furnished ? "Furnished" : "Unfurnished"}</p>
             <div className="room-amenities">
               <h3>Amenities</h3>
@@ -436,18 +477,33 @@ const RoomDetail = () => {
                 Status: <span className="status-text">{room.status || "Available"}</span>
               </p>
             </div>
-            <div className="room-actions">
-              <button
-                className="btn btn-primary"
-                onClick={handleBookNow}
-                disabled={room.status === "Booked" || room.status === "Not Available" || room.status === "Maintenance"}
-              >
-                {room.status === "Available" || !room.status ? "Book Now" : room.status}
-              </button>
-              <button className="btn btn-outline" onClick={() => handleChatWithLandlord()}>
-                <MessageCircle size={20} /> Chat with Landlord
-              </button>
-            </div>
+
+            {/* Show different actions if coming from bookings */}
+            {fromBookings && bookingId ? (
+              <div className="room-actions">
+                <Link to={`/payment/${bookingId}`} className="btn btn-primary">
+                  Proceed to Payment
+                </Link>
+                <button className="btn btn-outline" onClick={() => handleChatWithLandlord()}>
+                  <MessageCircle size={20} /> Chat with Landlord
+                </button>
+              </div>
+            ) : (
+              <div className="room-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={handleBookNow}
+                  disabled={
+                    room.status === "Booked" || room.status === "Not Available" || room.status === "Maintenance"
+                  }
+                >
+                  {room.status === "Available" || !room.status ? "Book Now" : room.status}
+                </button>
+                <button className="btn btn-outline" onClick={() => handleChatWithLandlord()}>
+                  <MessageCircle size={20} /> Chat with Landlord
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -497,7 +553,9 @@ const RoomDetail = () => {
 
                     <p className="furnished-status">{relatedRoom.furnished ? "Furnished" : "Unfurnished"}</p>
                     <p className="relevance-indicator">
-                      {relatedRoom.location
+                      {relatedRoom.location &&
+                      room.location &&
+                      relatedRoom.location
                         .toLowerCase()
                         .includes(room.location.toLowerCase().split(",")[0].trim().toLowerCase())
                         ? "Same area"

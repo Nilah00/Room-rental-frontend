@@ -17,6 +17,8 @@ import ProtectedRoute from "./components/ProtectedRoute"
 import ManageBookings from "./components/ManageBookings"
 import Notifications from "./components/NotificationSystem"
 import MessagesPage from "./components/MessagesPage"
+import BookingConfirmation from "./components/bookingConfirmation"
+import Bookings from "./components/bookings" // Import the Bookings component
 
 function App() {
   return (
@@ -30,8 +32,18 @@ function App() {
         <Route path="/services" element={<Services />} />
         <Route path="/rooms" element={<ViewAllRooms />} />
         <Route path="/room/:id" element={<RoomDetail />} />
-
+        {/* New route for booking confirmation */}
+        <Route path="/booking-confirmation/:bookingId" element={<BookingConfirmation />} />
+       
         {/* Protected routes */}
+        <Route
+          path="/bookings" // Add the route for the Bookings page
+          element={
+            <ProtectedRoute requireAdmin={false}>
+              <Bookings />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/messages"
           element={
@@ -127,4 +139,3 @@ function App() {
 }
 
 export default App
-

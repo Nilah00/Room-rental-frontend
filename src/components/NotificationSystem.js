@@ -115,7 +115,16 @@ export default function Notifications({ onClose, isOpen }) {
     if (notification.type === "booking_request") {
       navigate(`/manage-bookings`)
     } else if (notification.type === "booking_status_update") {
-      navigate(`/bookings`)
+      // Check if the booking was approved
+      if (notification.status === "approved" || notification.message.includes("approved")) {
+        // Navigate to the booking confirmation page with the booking ID
+        navigate(
+          `/booking-confirmation/${notification.bookingId || notification.entityId}?propertyId=${notification.propertyId}`,
+        )
+      } else {
+        // For other status updates, navigate to the bookings page
+        navigate(`/bookings`)
+      }
     } else if (notification.type === "property_update" && notification.propertyId) {
       navigate(`/room/${notification.propertyId}`)
     }
