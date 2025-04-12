@@ -85,4 +85,3 @@ const PropertyLocationMap = ({ property }) => {
 }
 
 export default PropertyLocationMap
-

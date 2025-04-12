@@ -394,6 +394,34 @@
   animation: spin 1s linear infinite;
 }
 
+/* Add these styles to your existing Bookings.css file */
+
+/* Payment Status Styles */
+.payment-status {
+  margin-top: 0.5rem;
+}
+
+/* Payment Status Badge Styles */
+.payment-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.payment-paid {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.payment-pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

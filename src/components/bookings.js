@@ -419,6 +419,21 @@ export default function Bookings() {
     }
   }
 
+  const getPaymentStatus = (bookingId) => {
+    try {
+      // Check if we have payment data for this booking
+      const paymentData = localStorage.getItem(`payment_${bookingId}`)
+      if (paymentData) {
+        const payment = JSON.parse(paymentData)
+        return payment.status === "COMPLETE" ? "PAID" : "PENDING"
+      }
+      return "PENDING"
+    } catch (error) {
+      console.error("Error checking payment status:", error)
+      return "PENDING"
+    }
+  }
+
   if (loading) {
     return (
       <div className="bookings-container">
@@ -436,7 +451,7 @@ export default function Bookings() {
             <RefreshCw size={16} />
             Refresh
           </button>
-          
+
           <Link to="/" className="home-link">
             <Home size={18} />
             Home
@@ -506,6 +521,13 @@ export default function Bookings() {
                       {booking.status || "Pending"}
                     </span>
                   </div>
+                  <div className="payment-status">
+                    <span
+                      className={`payment-badge ${getPaymentStatus(booking._id) === "PAID" ? "payment-paid" : "payment-pending"}`}
+                    >
+                      {getPaymentStatus(booking._id) === "PAID" ? "Paid" : "Payment Pending"}
+                    </span>
+                  </div>
 
                   <div className="booking-date">
                     <Clock size={16} />
@@ -525,12 +547,15 @@ export default function Bookings() {
                 </div>
 
                 <div className="booking-actions">
-                  {booking.status === "approved" && booking.status !== "rejected" && booking.status !== "cancelled" && (
-                    <button className="proceed-payment-button" onClick={() => handleProceedToPayment(booking._id)}>
-                      <CreditCard size={16} />
-                      Proceed to Payment
-                    </button>
-                  )}
+                  {booking.status === "approved" &&
+                    booking.status !== "rejected" &&
+                    booking.status !== "cancelled" &&
+                    getPaymentStatus(booking._id) !== "PAID" && (
+                      <button className="proceed-payment-button" onClick={() => handleProceedToPayment(booking._id)}>
+                        <CreditCard size={16} />
+                        Proceed to Payment
+                      </button>
+                    )}
 
                   <button className="view-details-button" onClick={() => handleViewDetails(booking)}>
                     View Details
@@ -556,4 +581,3 @@ export default function Bookings() {
     </div>
   )
 }
-

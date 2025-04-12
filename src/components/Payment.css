@@ -1,0 +1,555 @@
+.payment-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+      "Helvetica Neue", sans-serif;
+  }
+  
+  .payment-card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+  
+  .payment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .payment-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #333;
+    font-weight: 600;
+  }
+  
+  .back-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #f3f4f6;
+    color: #4b5563;
+    border: none;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .back-button:hover {
+    background-color: #e5e7eb;
+    color: #333;
+  }
+  
+  .payment-content {
+    padding: 2rem;
+  }
+  
+  .booking-summary {
+    margin-bottom: 2rem;
+  }
+  
+  .booking-summary h2 {
+    font-size: 1.2rem;
+    margin: 0 0 1rem 0;
+    color: #333;
+    font-weight: 600;
+  }
+  
+  .property-info {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .property-thumbnail {
+    width: 120px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+  }
+  
+  .property-thumbnail-fallback {
+    width: 120px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f3f4f6;
+    border-radius: 4px;
+    color: #9ca3af;
+  }
+  
+  .property-details {
+    flex: 1;
+  }
+  
+  .property-details h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #333;
+  }
+  
+  .property-address {
+    margin: 0 0 0.5rem 0;
+    color: #666;
+    font-size: 0.9rem;
+  }
+  
+  .booking-id {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #888;
+  }
+  
+  .payment-info-box {
+    background-color: #f0f9ff;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #3b82f6;
+  }
+  
+  .payment-info-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .payment-info-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #1e40af;
+  }
+  
+  .payment-info-header svg {
+    color: #3b82f6;
+  }
+  
+  .payment-info-box p {
+    margin: 0.5rem 0;
+    color: #4b5563;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  
+  .payment-warning-text {
+    color: #b91c1c !important;
+  }
+  
+  .payment-amount-section {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+    background-color: #f9fafb;
+    border-radius: 8px;
+  }
+  
+  .payment-amount-section h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #333;
+  }
+  
+  .payment-amount-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  
+  .payment-amount-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .payment-amount-option label {
+    font-size: 0.95rem;
+    color: #4b5563;
+    cursor: pointer;
+  }
+  
+  .custom-amount-input {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #d1d5db;
+  }
+  
+  .custom-amount-input label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #4b5563;
+  }
+  
+  .custom-amount-input input {
+    width: 100%;
+    max-width: 200px;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 1rem;
+  }
+  
+  .amount-error {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+  }
+  
+  .payment-details {
+    background-color: #f9f9f9;
+    padding: 1rem;
+    border-radius: 4px;
+  }
+  
+  .payment-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    color: #555;
+  }
+  
+  .payment-row.total {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed #ddd;
+    font-weight: 600;
+    color: #333;
+    font-size: 1.1rem;
+  }
+  
+  .payment-methods {
+    margin-bottom: 2rem;
+  }
+  
+  .payment-methods h2 {
+    font-size: 1.2rem;
+    margin: 0 0 1rem 0;
+    color: #333;
+    font-weight: 600;
+  }
+  
+  .payment-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .payment-option {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .payment-option:hover {
+    border-color: #4263eb;
+    background-color: #f8f9ff;
+  }
+  
+  .payment-option.selected {
+    border-color: #4263eb;
+    background-color: #f8f9ff;
+  }
+  
+  .payment-option-logo {
+    width: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .payment-option-logo img {
+    max-width: 100%;
+    max-height: 40px;
+  }
+  
+  .payment-option-details {
+    flex: 1;
+    padding: 0 1rem;
+  }
+  
+  .payment-option-details h3 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+  }
+  
+  .payment-option-details p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #666;
+  }
+  
+  .payment-option-radio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .esewa-help-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: none;
+    border: none;
+    color: #4263eb;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  
+  .esewa-help-toggle:hover {
+    color: #3b5bdb;
+    text-decoration: underline;
+  }
+  
+  .esewa-help-section {
+    margin-top: 1rem;
+    padding: 1.25rem;
+    background-color: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .esewa-help-section h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #333;
+  }
+  
+  .esewa-help-section p {
+    margin: 0.5rem 0;
+    color: #4b5563;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  
+  .esewa-help-section a {
+    color: #4263eb;
+    text-decoration: none;
+  }
+  
+  .esewa-help-section a:hover {
+    text-decoration: underline;
+  }
+  
+  .esewa-tips {
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: #fff;
+    border-radius: 6px;
+    border: 1px dashed #e2e8f0;
+  }
+  
+  .esewa-tips h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+    color: #333;
+  }
+  
+  .esewa-tips ul {
+    margin: 0;
+    padding-left: 1.5rem;
+  }
+  
+  .esewa-tips li {
+    margin-bottom: 0.5rem;
+    color: #4b5563;
+    font-size: 0.9rem;
+  }
+  
+  .esewa-test-credentials {
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: #fef3c7;
+    border-radius: 6px;
+    border: 1px dashed #f59e0b;
+  }
+  
+  .esewa-test-credentials h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+    color: #92400e;
+  }
+  
+  .esewa-test-credentials ul {
+    margin: 0;
+    padding-left: 1.5rem;
+  }
+  
+  .esewa-test-credentials li {
+    margin-bottom: 0.5rem;
+    color: #78350f;
+    font-size: 0.9rem;
+  }
+  
+  .test-note {
+    margin-top: 0.75rem !important;
+    font-style: italic;
+    color: #92400e;
+    font-size: 0.85rem !important;
+  }
+  
+  .esewa-contact {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #f0f9ff;
+    border-radius: 6px;
+  }
+  
+  .esewa-contact p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  
+  .payment-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .pay-now-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 300px;
+    padding: 1rem;
+    background-color: #4263eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .pay-now-button:hover {
+    background-color: #3b5bdb;
+  }
+  
+  .pay-now-button:disabled {
+    background-color: #a5b4fc;
+    cursor: not-allowed;
+  }
+  
+  .payment-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: #666;
+  }
+  
+  .spinning {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  .loading-spinner,
+  .error-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    text-align: center;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .error-message {
+    color: #e53e3e;
+    gap: 1rem;
+  }
+  
+  .error-message p {
+    margin: 0;
+  }
+  
+  .error-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  
+  .retry-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #4263eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .retry-button:hover {
+    background-color: #3b5bdb;
+  }
+  
+  @media (max-width: 768px) {
+    .payment-header {
+      padding: 1rem 1.5rem;
+    }
+  
+    .payment-content {
+      padding: 1.5rem;
+    }
+  
+    .property-thumbnail {
+      width: 80px;
+      height: 60px;
+    }
+  
+    .property-thumbnail-fallback {
+      width: 80px;
+      height: 60px;
+    }
+  
+    .error-actions {
+      flex-direction: column;
+    }
+  
+    .payment-amount-options {
+      flex-direction: column;
+    }
+  
+    .custom-amount-input input {
+      max-width: 100%;
+    }
+  }
+  

@@ -19,6 +19,9 @@ import Notifications from "./components/NotificationSystem"
 import MessagesPage from "./components/MessagesPage"
 import BookingConfirmation from "./components/bookingConfirmation"
 import Bookings from "./components/bookings" // Import the Bookings component
+import Payment from "./components/Payment"
+import PaymentSuccess from "./components/PaymentSuccess"
+import PaymentFailure from "./components/PaymentFailure"
 
 function App() {
   return (
@@ -34,6 +37,9 @@ function App() {
         <Route path="/room/:id" element={<RoomDetail />} />
         {/* New route for booking confirmation */}
         <Route path="/booking-confirmation/:bookingId" element={<BookingConfirmation />} />
+        <Route path="/payment/:bookingId" element={<Payment />} />
+        <Route path="/payment/success" element={<PaymentSuccess />} />
+        <Route path="/payment/failure" element={<PaymentFailure />} />
        
         {/* Protected routes */}
         <Route

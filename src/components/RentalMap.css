@@ -23,6 +23,7 @@
   margin: 0 auto;
   padding: 0 20px;
   box-sizing: border-box;
+  position: relative;
 }
 
 .leaflet-container {
@@ -43,6 +44,7 @@
   padding: 20px 40px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
 }
 
 /* Customize the popup style */
@@ -114,7 +116,14 @@
   margin-bottom: 20px;
 }
 
-
+.map-coordinates-debug {
+  text-align: center;
+  padding: 10px;
+  font-size: 12px;
+  color: #666;
+  background-color: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+}
 
 /* Make the map responsive */
 @media (max-width: 768px) {
@@ -131,3 +140,22 @@
     width: 250px !important;
   }
 }
+
+/* Adjustments for room detail page */
+.room-detail-page .map-section {
+  min-height: auto;
+  padding: 0;
+  margin: 2rem 0;
+  background-color: transparent;
+}
+
+.room-detail-page .map-container {
+  height: 400px;
+  margin: 0;
+}
+
+.room-detail-page .map-title {
+  margin-bottom: 10px;
+  font-size: 20px;
+}
+

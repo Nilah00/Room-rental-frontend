@@ -576,25 +576,29 @@ const HomePage = () => {
                     <span className="username">{username}</span>
                   </div>
                   {showDropdown && (
-                    <div className="dropdown-menu">
-                      <Link to="/profile" className="dropdown-item">
-                        Personal Information
-                      </Link>
-                      <Link to="/settings" className="dropdown-item">
-                        Settings
-                      </Link>
-                      <Link to="/manage-properties" className="dropdown-item">
-                        Manage Properties
-                      </Link>
-                      {isLandlord && (
-                        <Link to="/manage-bookings" className="dropdown-item">
-                          Booking Requests
-                        </Link>
-                      )}
-                      <button onClick={handleLogout} className="dropdown-item logout-btn">
-                        Logout
-                      </button>
-                    </div>
+                   <div className="dropdown-menu">
+                   <Link to="/profile" className="dropdown-item">
+                     Personal Information
+                   </Link>
+                   <Link to="/settings" className="dropdown-item">
+                     Settings
+                   </Link>
+                   <Link to="/manage-properties" className="dropdown-item">
+                     Manage Properties
+                   </Link>
+                   <Link to="/bookings" className="dropdown-item">
+                     My Bookings
+                   </Link>
+                   {isLandlord && (
+                     <Link to="/manage-bookings" className="dropdown-item">
+                       Booking Requests
+                     </Link>
+                   )}
+                   <button onClick={handleLogout} className="dropdown-item logout-btn">
+                     Logout
+                   </button>
+                 </div>
+                 
                   )}
                 </div>
               ) : (

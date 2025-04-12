@@ -163,8 +163,20 @@ export const getProperties = async () => {
 
     // Check if the response data contains properties and valid coordinates
     if (response.data && response.data.length > 0) {
-      response.data.forEach((property) => {
+      // Process each property to ensure coordinates are properly formatted
+      response.data = response.data.map((property) => {
+        // Ensure coordinates are parsed as numbers
+        if (property.latitude) {
+          property.latitude = Number.parseFloat(property.latitude)
+        }
+        if (property.longitude) {
+          property.longitude = Number.parseFloat(property.longitude)
+        }
+
+        // Log the property coordinates for debugging
         console.log(`Property: ${property.name}, Coordinates: ${property.latitude}, ${property.longitude}`)
+
+        return property
       })
     }
 
@@ -175,6 +187,21 @@ export const getProperties = async () => {
       console.log("Trying alternative endpoint for properties")
       const response = await api.get("/properties/all")
       console.log("Properties response from alternative endpoint:", response)
+
+      // Process properties from alternative endpoint
+      if (response.data && response.data.length > 0) {
+        response.data = response.data.map((property) => {
+          // Ensure coordinates are parsed as numbers
+          if (property.latitude) {
+            property.latitude = Number.parseFloat(property.latitude)
+          }
+          if (property.longitude) {
+            property.longitude = Number.parseFloat(property.longitude)
+          }
+          return property
+        })
+      }
+
       return response
     } catch (secondError) {
       console.error("Error fetching properties from alternative endpoint:", secondError)
@@ -183,7 +210,7 @@ export const getProperties = async () => {
   }
 }
 
-// Replace the existing getPropertyById function with this improved version
+// Updated getPropertyById function with improved location data handling
 export const getPropertyById = async (id) => {
   console.log(`Fetching property with id:`, id)
   try {
@@ -192,32 +219,6 @@ export const getPropertyById = async (id) => {
     if (typeof id === "object") {
       propertyId = id._id || id.id
       console.log("Extracted ID from object:", propertyId)
-    }
-
-    // Check if the ID is a timestamp (13 digits)
-    if (/^\d{13}$/.test(propertyId)) {
-      console.log("ID appears to be a timestamp, trying localStorage first")
-
-      try {
-        // Try to find the property in localStorage
-        const storedPropertiesJson = localStorage.getItem("properties")
-        if (storedPropertiesJson) {
-          const storedProperties = JSON.parse(storedPropertiesJson)
-
-          if (Array.isArray(storedProperties)) {
-            // Look for a property with matching ID
-            const property = storedProperties.find((p) => (p._id === propertyId || p.id === propertyId) && !p.isDeleted)
-
-            if (property) {
-              console.log("Found property in localStorage:", property.title)
-              return property
-            }
-          }
-        }
-        console.log("Property not found in localStorage, trying API")
-      } catch (localError) {
-        console.error("Error searching localStorage:", localError)
-      }
     }
 
     // Make the API call
@@ -231,9 +232,55 @@ export const getPropertyById = async (id) => {
     if (!response.data) {
       throw new Error("No data received from the server")
     }
-    console.log("Property data:", response.data)
+
+    // Log location data specifically
+    console.log("Property location data from API:", {
+      location: response.data.location,
+      latitude: response.data.latitude,
+      longitude: response.data.longitude,
+    })
+
+    // Ensure coordinates are properly parsed as numbers
+    if (response.data.latitude !== undefined) {
+      response.data.latitude = Number.parseFloat(response.data.latitude)
+    }
+    if (response.data.longitude !== undefined) {
+      response.data.longitude = Number.parseFloat(response.data.longitude)
+    }
+
+    // Log parsed coordinates
+    console.log("Parsed coordinates from API:", {
+      latitude: response.data.latitude,
+      longitude: response.data.longitude,
+    })
+
+    // Try to extract coordinates from location string if direct coordinates are invalid
+    if (
+      (!response.data.latitude ||
+        !response.data.longitude ||
+        isNaN(response.data.latitude) ||
+        isNaN(response.data.longitude)) &&
+      response.data.location
+    ) {
+      console.log("Direct coordinates invalid, trying to extract from location string:", response.data.location)
+
+      // Try to extract coordinates from location string if it contains lat,lng format
+      const coordsMatch = response.data.location.match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/)
+      if (coordsMatch) {
+        response.data.latitude = Number.parseFloat(coordsMatch[1])
+        response.data.longitude = Number.parseFloat(coordsMatch[2])
+
+        console.log("Extracted coordinates from location string:", {
+          latitude: response.data.latitude,
+          longitude: response.data.longitude,
+        })
+      }
+    }
+
     return response.data
   } catch (error) {
+    // Error handling code remains the same
+    // ...
     console.error(`Error fetching property with id ${id}:`, error)
 
     // Try localStorage as a fallback
@@ -249,6 +296,49 @@ export const getPropertyById = async (id) => {
 
           if (property) {
             console.log("Found property in localStorage fallback:", property.title)
+
+            // Ensure coordinates are properly parsed as numbers
+            if (property.latitude) {
+              property.latitude = Number.parseFloat(property.latitude)
+            }
+            if (property.longitude) {
+              property.longitude = Number.parseFloat(property.longitude)
+            }
+
+            // Log location data for debugging
+            console.log("Property location data from localStorage fallback:", {
+              location: property.location,
+              latitude: property.latitude,
+              longitude: property.longitude,
+            })
+
+            // Try to extract coordinates from location string if direct coordinates are invalid
+            if (
+              (!property.latitude ||
+                !property.longitude ||
+                isNaN(property.latitude) ||
+                isNaN(property.longitude) ||
+                (property.latitude === 0 && property.longitude === 0)) &&
+              property.location
+            ) {
+              console.log(
+                "Direct coordinates invalid in localStorage, trying to extract from location string:",
+                property.location,
+              )
+
+              // Try to extract coordinates from location string if it contains lat,lng format
+              const coordsMatch = property.location.match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/)
+              if (coordsMatch) {
+                property.latitude = Number.parseFloat(coordsMatch[1])
+                property.longitude = Number.parseFloat(coordsMatch[2])
+
+                console.log("Extracted coordinates from location string in localStorage:", {
+                  latitude: property.latitude,
+                  longitude: property.longitude,
+                })
+              }
+            }
+
             return property
           }
 
@@ -256,7 +346,17 @@ export const getPropertyById = async (id) => {
           if (process.env.NODE_ENV === "development" || window.location.hostname === "localhost") {
             if (storedProperties.length > 0) {
               console.log("Development fallback - returning first property from localStorage")
-              return storedProperties[0]
+              const firstProperty = storedProperties[0]
+
+              // Ensure coordinates are properly parsed as numbers
+              if (firstProperty.latitude) {
+                firstProperty.latitude = Number.parseFloat(firstProperty.latitude)
+              }
+              if (firstProperty.longitude) {
+                firstProperty.longitude = Number.parseFloat(firstProperty.longitude)
+              }
+
+              return firstProperty
             }
           }
         }
@@ -859,9 +959,6 @@ export const getLandlordBookings = async () => {
   }
 }
 
-// Get bookings for tenant - FIXED FUNCTION
-// Update the getTenantBookings function with more debugging and fallback mechanisms
-
 // Get bookings for tenant - IMPROVED FUNCTION
 export const getTenantBookings = async () => {
   try {
@@ -1009,7 +1106,6 @@ export const updateBookingStatusNew = async (bookingId, status) => {
 
 // Update the cancelBooking function to try more endpoint formats and send notification to property owner
 // This version fixes the issue with notifications going to the wrong recipient
-
 export const cancelBooking = async (bookingId) => {
   console.log(`Starting cancellation process for booking: ${bookingId}`)
 
@@ -1715,6 +1811,67 @@ export const handleImageError = (e) => {
   console.error("Image error occurred for:", e.target.src)
   e.target.onerror = null // Prevent infinite loop
   e.target.src = "/placeholder.svg"
+}
+
+// Add utility functions for location data
+export const validateCoordinates = (lat, lng) => {
+  return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+}
+
+export const extractCoordinatesFromString = (locationString) => {
+  if (!locationString) return null
+
+  // Try to extract coordinates from location string if it contains lat,lng format
+  const coordsMatch = locationString.match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/)
+  if (coordsMatch) {
+    const lat = Number.parseFloat(coordsMatch[1])
+    const lng = Number.parseFloat(coordsMatch[2])
+
+    if (validateCoordinates(lat, lng)) {
+      return { latitude: lat, longitude: lng }
+    }
+  }
+
+  return null
+}
+
+export const getPropertyCoordinates = (property) => {
+  if (!property) return null
+
+  // Try direct coordinates first
+  let lat = Number.parseFloat(property.latitude)
+  let lng = Number.parseFloat(property.longitude)
+
+  if (validateCoordinates(lat, lng)) {
+    return { latitude: lat, longitude: lng }
+  }
+
+  // Try location string next
+  if (property.location) {
+    const extractedCoords = extractCoordinatesFromString(property.location)
+    if (extractedCoords) {
+      return extractedCoords
+    }
+  }
+
+  // Try coordinates object if available
+  if (property.coordinates) {
+    if (property.coordinates.lat && property.coordinates.lng) {
+      lat = Number.parseFloat(property.coordinates.lat)
+      lng = Number.parseFloat(property.coordinates.lng)
+      if (validateCoordinates(lat, lng)) {
+        return { latitude: lat, longitude: lng }
+      }
+    } else if (property.coordinates.latitude && property.coordinates.longitude) {
+      lat = Number.parseFloat(property.coordinates.latitude)
+      lng = Number.parseFloat(property.coordinates.longitude)
+      if (validateCoordinates(lat, lng)) {
+        return { latitude: lat, longitude: lng }
+      }
+    }
+  }
+
+  return null
 }
 
 export default api

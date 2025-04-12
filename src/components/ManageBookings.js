@@ -268,21 +268,25 @@ export default function ManageBookings() {
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case "pending":
-        return "status-pending"
+        return "mb-status-pending"
       case "approved":
-        return "status-approved"
+        return "mb-status-approved"
       case "rejected":
-        return "status-rejected"
+        return "mb-status-rejected"
       case "cancelled":
-        return "status-cancelled"
+        return "mb-status-cancelled"
       default:
         return ""
     }
   }
 
+  // Update the handleContactTenant function to close the expanded booking details first
   const handleContactTenant = async (booking) => {
     try {
       console.log("Contact tenant clicked for booking:", booking)
+
+      // Close the expanded booking details first
+      setExpandedBooking(null)
 
       // Store the selected booking
       setSelectedBooking(booking)
@@ -379,19 +383,19 @@ export default function ManageBookings() {
 
   if (loading) {
     return (
-      <div className="manage-bookings-container">
-        <div className="loading-spinner">Loading booking requests...</div>
+      <div className="mb-container">
+        <div className="mb-loading">Loading booking requests...</div>
       </div>
     )
   }
 
   return (
-    <div className="manage-bookings-container">
-      <header className="manage-bookings-header">
+    <div className="mb-container">
+      <header className="mb-header">
         <h1>Manage Booking Requests</h1>
-        <div className="header-actions">
+        <div className="mb-header-actions">
           {bookings.length > 0 && (
-            <button className="clear-all-button" onClick={handleClearAllBookings} disabled={clearingBookings}>
+            <button className="mb-clear-button" onClick={handleClearAllBookings} disabled={clearingBookings}>
               {clearingBookings ? (
                 "Processing..."
               ) : showClearConfirm ? (
@@ -404,7 +408,7 @@ export default function ManageBookings() {
               )}
             </button>
           )}
-          <Link to="/" className="back-home-button">
+          <Link to="/" className="mb-back-button">
             <Home size={18} />
             Back to Home
           </Link>
@@ -412,17 +416,17 @@ export default function ManageBookings() {
       </header>
 
       {error && (
-        <div className="error-message">
+        <div className="mb-error">
           <AlertCircle size={20} />
           <span>{error}</span>
-          <button onClick={() => fetchBookings()} className="retry-button">
+          <button onClick={() => fetchBookings()} className="mb-retry-button">
             Retry
           </button>
         </div>
       )}
 
       {bookings.length === 0 ? (
-        <div className="no-bookings-message">
+        <div className="mb-no-bookings">
           <Clock size={48} />
           <h3>No Booking Requests</h3>
           <p>
@@ -431,27 +435,27 @@ export default function ManageBookings() {
           </p>
         </div>
       ) : (
-        <div className="bookings-list">
+        <div className="mb-bookings-list">
           {bookings.map((booking) => (
             <div
               key={booking._id || booking.id}
-              className={`booking-card ${expandedBooking === (booking._id || booking.id) ? "expanded" : ""}`}
+              className={`mb-card ${expandedBooking === (booking._id || booking.id) ? "expanded" : ""}`}
             >
-              <div className="booking-header" onClick={() => handleExpandBooking(booking._id || booking.id)}>
-                <div className="booking-title">
+              <div className="mb-card-header" onClick={() => handleExpandBooking(booking._id || booking.id)}>
+                <div className="mb-card-title">
                   <h3>{booking.propertyTitle}</h3>
-                  <span className={`status-badge ${getStatusBadgeClass(booking.status)}`}>
+                  <span className={`mb-status-badge ${getStatusBadgeClass(booking.status)}`}>
                     {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                   </span>
                 </div>
-                <div className="booking-meta">
-                  <span className="booking-date">Requested on {formatDate(booking.requestDate)}</span>
+                <div className="mb-card-meta">
+                  <span className="mb-booking-date">Requested on {formatDate(booking.requestDate)}</span>
                   {booking.status !== "pending" && booking.responseDate && (
-                    <span className="response-date">Responded on {formatDate(booking.responseDate)}</span>
+                    <span className="mb-response-date">Responded on {formatDate(booking.responseDate)}</span>
                   )}
-                  <div className="booking-actions-compact">
+                  <div className="mb-actions-compact">
                     <button
-                      className="delete-booking-button"
+                      className="mb-delete-button"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleDeleteBooking(booking._id || booking.id)
@@ -470,8 +474,8 @@ export default function ManageBookings() {
               </div>
 
               {expandedBooking === (booking._id || booking.id) && (
-                <div className="booking-details">
-                  <div className="tenant-info">
+                <div className="mb-card-details">
+                  <div className="mb-tenant-info">
                     <h4>Tenant Information</h4>
                     <p>
                       <strong>Name:</strong> {booking.name}
@@ -489,7 +493,7 @@ export default function ManageBookings() {
                       <strong>Family Members:</strong> {booking.familyMembers}
                     </p>
                     {booking.message && (
-                      <div className="tenant-message">
+                      <div className="mb-tenant-message">
                         <h4>Message from Tenant</h4>
                         <p>{booking.message}</p>
                       </div>
@@ -498,10 +502,10 @@ export default function ManageBookings() {
 
                   {/* Show approve/reject buttons for both pending and cancelled bookings */}
                   {canApproveOrReject(booking.status) && (
-                    <div className="booking-actions">
-                      <div className="action-buttons">
+                    <div className="mb-actions">
+                      <div className="mb-action-buttons">
                         <button
-                          className="approve-button"
+                          className="mb-approve-button"
                           onClick={() => handleUpdateStatus(booking._id || booking.id, "approved")}
                           disabled={processingBookingId === (booking._id || booking.id)}
                         >
@@ -509,7 +513,7 @@ export default function ManageBookings() {
                           {processingBookingId === (booking._id || booking.id) ? "Processing..." : "Approve"}
                         </button>
                         <button
-                          className="reject-button"
+                          className="mb-reject-button"
                           onClick={() => handleUpdateStatus(booking._id || booking.id, "rejected")}
                           disabled={processingBookingId === (booking._id || booking.id)}
                         >
@@ -517,10 +521,11 @@ export default function ManageBookings() {
                           {processingBookingId === (booking._id || booking.id) ? "Processing..." : "Reject"}
                         </button>
                       </div>
-                      <div className="response-field">
+                      <div className="mb-response-field">
                         <label htmlFor="responseMessage">Response Message (optional):</label>
                         <textarea
                           id="responseMessage"
+                          className="mb-textarea"
                           value={responseMessage}
                           onChange={handleResponseChange}
                           placeholder="Add a message to the tenant..."
@@ -531,9 +536,9 @@ export default function ManageBookings() {
                   )}
 
                   {booking.status === "approved" && (
-                    <div className="booking-actions">
+                    <div className="mb-actions">
                       <button
-                        className="cancel-button"
+                        className="mb-cancel-button"
                         onClick={() => handleCancelBooking(booking._id || booking.id)}
                         disabled={processingBookingId === (booking._id || booking.id)}
                       >
@@ -544,20 +549,20 @@ export default function ManageBookings() {
                   )}
 
                   {booking.status !== "pending" && booking.responseMessage && (
-                    <div className="response-info">
+                    <div className="mb-response-info">
                       <h4>Your Response</h4>
                       <p>{booking.responseMessage}</p>
                     </div>
                   )}
 
-                  <div className="contact-tenant">
-                    <button className="contact-button" onClick={() => handleContactTenant(booking)}>
+                  <div className="mb-contact-tenant">
+                    <button className="mb-contact-button" onClick={() => handleContactTenant(booking)}>
                       <MessageCircle size={16} />
                       Contact Tenant
                     </button>
                     <button
                       onClick={() => handleViewProperty(booking.propertyId)}
-                      className="view-button"
+                      className="mb-view-button"
                       title="View property"
                     >
                       View Property
@@ -571,8 +576,8 @@ export default function ManageBookings() {
       )}
 
       {showChat && selectedBooking && (
-        <div className="chat-overlay">
-          <div className="chat-container">
+        <div className="mb-chat-overlay">
+          
             <ChatBox
               onClose={handleCloseChat}
               landlordName={currentTenant || "Tenant"}
@@ -584,13 +589,8 @@ export default function ManageBookings() {
               chatId={chatId}
             />
           </div>
-        </div>
+      
       )}
-
-      <style jsx>{`
-        
-      `}</style>
     </div>
   )
 }
-
