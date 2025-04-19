@@ -8,6 +8,21 @@ import ChatBox from "./ChatBox"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import "./ViewAllRoom.css"
 
+// Helper function to check if a property is in the deletion blacklist
+const isPropertyDeleted = (propertyId) => {
+  try {
+    // Get the blacklist from localStorage
+    const blacklistJson = localStorage.getItem("deletedProperties")
+    if (!blacklistJson) return false
+
+    const blacklist = JSON.parse(blacklistJson)
+    return Array.isArray(blacklist) && blacklist.includes(propertyId)
+  } catch (error) {
+    console.error("Error checking deletion blacklist:", error)
+    return false
+  }
+}
+
 function ViewAllRooms() {
   const [rooms, setRooms] = useState([])
   const [favorites, setFavorites] = useState([])
@@ -99,8 +114,15 @@ function ViewAllRooms() {
     try {
       const response = await axios.get("http://localhost:5000/api/properties")
 
+      // Filter out deleted properties
+      const filteredResponse = response.data.filter((room) => !isPropertyDeleted(room._id))
+
+      if (filteredResponse.length < response.data.length) {
+        console.log(`Filtered out ${response.data.length - filteredResponse.length} deleted properties`)
+      }
+
       // Standardize status values in the fetched data
-      const standardizedRooms = response.data.map((room) => {
+      const standardizedRooms = filteredResponse.map((room) => {
         // If status is missing, set to "Available"
         if (!room.status) {
           return { ...room, status: "Available" }
@@ -204,6 +226,26 @@ function ViewAllRooms() {
     setCurrentPropertyTitle(propertyTitle || "Property Chat") // Provide default if missing
     setShowChat(true)
   }
+
+  // Add this useEffect to listen for property deletion events
+  useEffect(() => {
+    const handlePropertyDeleted = (event) => {
+      const { propertyId } = event.detail
+      console.log(`Received property deletion event for property ${propertyId}`)
+
+      // Update rooms state to filter out the deleted property
+      setRooms((prevRooms) => prevRooms.filter((room) => room._id !== propertyId))
+      setFilteredRooms((prevFilteredRooms) => prevFilteredRooms.filter((room) => room._id !== propertyId))
+    }
+
+    // Listen for property deletion events
+    window.addEventListener("propertyDeleted", handlePropertyDeleted)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("propertyDeleted", handlePropertyDeleted)
+    }
+  }, [])
 
   if (isLoading) {
     return <div className="loading">Loading rooms...</div>
@@ -393,4 +435,3 @@ function ViewAllRooms() {
 }
 
 export default ViewAllRooms
-

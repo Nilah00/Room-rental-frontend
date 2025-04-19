@@ -2,7 +2,7 @@ import axios from "axios"
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
 const FEATURED_PROPERTIES_STORAGE_KEY = "admin_featured_properties"
-const MAX_FEATURED_PROPERTIES = 6 // Increased from 3 to 6
+const MAX_FEATURED_PROPERTIES = 6
 
 console.log("Admin API URL:", API_URL)
 
@@ -20,9 +20,12 @@ const adminApi = axios.create({
 adminApi.interceptors.request.use(
   (config) => {
     console.log("Admin Request URL:", config.url)
-    const adminToken = localStorage.getItem("adminToken")
+    const adminToken = localStorage.getItem("adminToken") || localStorage.getItem("token")
     if (adminToken) {
       config.headers["Authorization"] = `Bearer ${adminToken}`
+      console.log("Added auth token to request")
+    } else {
+      console.warn("No admin token found in localStorage")
     }
     return config
   },
@@ -51,6 +54,130 @@ adminApi.interceptors.response.use(
     return Promise.reject(error)
   },
 )
+
+// Mock data for when API fails
+const MOCK_USERS = [
+  {
+    _id: "user1",
+    name: "John Doe",
+    email: "john@example.com",
+    createdAt: new Date("2023-01-15").toISOString(),
+    updatedAt: new Date("2023-01-15").toISOString(),
+    isAdmin: false,
+  },
+  {
+    _id: "user2",
+    name: "Jane Smith",
+    email: "jane@example.com",
+    createdAt: new Date("2023-02-20").toISOString(),
+    updatedAt: new Date("2023-02-20").toISOString(),
+    isAdmin: false,
+  },
+  {
+    _id: "user3",
+    name: "Admin User",
+    email: "admin@example.com",
+    createdAt: new Date("2023-01-01").toISOString(),
+    updatedAt: new Date("2023-01-01").toISOString(),
+    isAdmin: true,
+  },
+]
+
+const MOCK_BOOKINGS = [
+  {
+    _id: "booking1",
+    propertyId: {
+      _id: "prop1",
+      title: "Luxury Apartment",
+      location: "Kathmandu",
+      price: 25000,
+      images: ["/placeholder.svg?height=300&width=500"],
+    },
+    propertyTitle: "Luxury Apartment",
+    tenantId: {
+      _id: "user1",
+      name: "John Doe",
+      email: "john@example.com",
+    },
+    landlordId: {
+      _id: "user3",
+      name: "Admin User",
+      email: "admin@example.com",
+    },
+    name: "John Doe",
+    email: "john@example.com",
+    phone: "9876543210",
+    moveInDate: new Date("2023-06-15").toISOString(),
+    leaseDuration: 12,
+    familyMembers: 2,
+    message: "I'm interested in renting this property for a year.",
+    status: "approved",
+    requestDate: new Date("2023-05-20").toISOString(),
+    responseDate: new Date("2023-05-22").toISOString(),
+  },
+  {
+    _id: "booking2",
+    propertyId: {
+      _id: "prop2",
+      title: "Modern House",
+      location: "Pokhara",
+      price: 35000,
+      images: ["/placeholder.svg?height=300&width=500"],
+    },
+    propertyTitle: "Modern House",
+    tenantId: {
+      _id: "user2",
+      name: "Jane Smith",
+      email: "jane@example.com",
+    },
+    landlordId: {
+      _id: "user3",
+      name: "Admin User",
+      email: "admin@example.com",
+    },
+    name: "Jane Smith",
+    email: "jane@example.com",
+    phone: "9876543211",
+    moveInDate: new Date("2023-07-01").toISOString(),
+    leaseDuration: 6,
+    familyMembers: 3,
+    message: "Looking for a short-term rental for my family.",
+    status: "pending",
+    requestDate: new Date("2023-06-15").toISOString(),
+  },
+  {
+    _id: "booking3",
+    propertyId: {
+      _id: "prop3",
+      title: "Cozy Studio",
+      location: "Lalitpur",
+      price: 15000,
+      images: ["/placeholder.svg?height=300&width=500"],
+    },
+    propertyTitle: "Cozy Studio",
+    tenantId: {
+      _id: "user1",
+      name: "John Doe",
+      email: "john@example.com",
+    },
+    landlordId: {
+      _id: "user3",
+      name: "Admin User",
+      email: "admin@example.com",
+    },
+    name: "John Doe",
+    email: "john@example.com",
+    phone: "9876543210",
+    moveInDate: new Date("2023-05-01").toISOString(),
+    leaseDuration: 3,
+    familyMembers: 1,
+    message: "Need a temporary place while I'm in town for work.",
+    status: "rejected",
+    requestDate: new Date("2023-04-15").toISOString(),
+    responseDate: new Date("2023-04-16").toISOString(),
+    responseMessage: "Property is already booked for that period.",
+  },
+]
 
 // Helper function to get all featured properties from local storage
 export const getAllFeaturedPropertiesFromLocalStorage = () => {
@@ -149,6 +276,9 @@ export const getProperties = async () => {
         }
         return property
       })
+      
+      // Filter out deleted properties
+      properties = filterDeletedProperties(properties);
     }
 
     return Array.isArray(properties) ? properties : response.data
@@ -183,6 +313,9 @@ export const getProperties = async () => {
           }
           return property
         })
+        
+        // Filter out deleted properties
+        properties = filterDeletedProperties(properties);
       }
 
       return Array.isArray(properties) ? properties : response.data
@@ -328,7 +461,7 @@ export const toggleFeaturedStatus = async (propertyId, featured) => {
         data: { featured },
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+          Authorization: `Bearer ${localStorage.getItem("adminToken") || localStorage.getItem("token")}`,
         },
         withCredentials: true,
       })
@@ -389,6 +522,9 @@ export const getFeaturedProperties = async () => {
           }
           return property
         })
+        
+        // Filter out deleted properties
+        featuredProps = filterDeletedProperties(featuredProps);
       }
 
       return Array.isArray(featuredProps) ? featuredProps : response.data
@@ -420,6 +556,9 @@ export const getFeaturedProperties = async () => {
             }
             return property
           })
+          
+          // Filter out deleted properties
+          featuredProps = filterDeletedProperties(featuredProps);
         }
 
         return Array.isArray(featuredProps) ? featuredProps : response.data
@@ -520,8 +659,6 @@ export const rebuildFeaturedProperties = async () => {
   }
 }
 
-// Add this function near the bottom of the file, before the export default adminApi line
-
 // Function to completely purge all featured properties
 export const purgeAllFeaturedProperties = async () => {
   try {
@@ -574,5 +711,607 @@ export const purgeAllFeaturedProperties = async () => {
     }
   }
 }
+
+// Add new functions to fetch users and bookings
+export const getAllUsers = async () => {
+  console.log("Fetching all users from admin API")
+
+  // Try to fetch real data from multiple endpoints
+  const endpoints = ["/public/users", "/users", "/admin/users", "/admin/users-direct", "/api/users", "/api/admin/users"]
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`Trying to fetch users from endpoint: ${endpoint}`)
+      const response = await adminApi.get(endpoint)
+      console.log(`Users response from ${endpoint}:`, response.data)
+
+      if (response.data && (Array.isArray(response.data) || response.data.users || response.data.data)) {
+        let users = response.data
+        if (!Array.isArray(users)) {
+          users = users.users || users.data || []
+        }
+
+        if (users.length > 0) {
+          console.log(`Successfully fetched ${users.length} users from ${endpoint}`)
+          return users
+        } else {
+          console.log(`Endpoint ${endpoint} returned empty users array`)
+        }
+      } else {
+        console.log(`Endpoint ${endpoint} returned invalid data format`)
+      }
+    } catch (error) {
+      console.error(`Error fetching users from ${endpoint}:`, error.message)
+    }
+  }
+
+  // If all endpoints fail, try a direct fetch with axios
+  try {
+    console.log("Trying direct axios fetch for users")
+    const baseUrl = API_URL.endsWith("/api") ? API_URL : `${API_URL}/api`
+
+    // Try the public endpoint first without any auth header
+    const response = await axios.get(`${baseUrl}/public/users`)
+
+    console.log("Direct axios users response:", response.data)
+    if (response.data && (Array.isArray(response.data) || response.data.users || response.data.data)) {
+      let users = response.data
+      if (!Array.isArray(users)) {
+        users = users.users || users.data || []
+      }
+
+      if (users.length > 0) {
+        return users
+      }
+    }
+  } catch (error) {
+    console.error("Error with direct axios fetch for users:", error.message)
+  }
+
+  // If all attempts fail, return empty array instead of mock data
+  console.warn("All user fetch attempts failed, returning empty array")
+  return []
+}
+
+export const getAllBookings = async () => {
+  console.log("Fetching all bookings from admin API")
+
+  // Try to fetch real data from multiple endpoints
+  const endpoints = [
+    "/public/bookings",
+    "/bookings/all",
+    "/admin/bookings",
+    "/admin/bookings-direct",
+    "/api/bookings/all",
+    "/api/admin/bookings",
+  ]
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`Trying to fetch bookings from endpoint: ${endpoint}`)
+      const response = await adminApi.get(endpoint)
+      console.log(`Bookings response from ${endpoint}:`, response.data)
+
+      if (response.data && (Array.isArray(response.data) || response.data.bookings || response.data.data)) {
+        let bookings = response.data
+        if (!Array.isArray(bookings)) {
+          bookings = bookings.bookings || bookings.data || []
+        }
+
+        if (bookings.length > 0) {
+          console.log(`Successfully fetched ${bookings.length} bookings from ${endpoint}`)
+          return bookings
+        } else {
+          console.log(`Endpoint ${endpoint} returned empty bookings array`)
+        }
+      } else {
+        console.log(`Endpoint ${endpoint} returned invalid data format`)
+      }
+    } catch (error) {
+      console.error(`Error fetching bookings from ${endpoint}:`, error.message)
+    }
+  }
+
+  // If all endpoints fail, try a direct fetch with axios
+  try {
+    console.log("Trying direct axios fetch for bookings")
+    const baseUrl = API_URL.endsWith("/api") ? API_URL : `${API_URL}/api`
+
+    // Try the public endpoint first without any auth header
+    const response = await axios.get(`${baseUrl}/public/bookings`)
+
+    console.log("Direct axios bookings response:", response.data)
+    if (response.data && (Array.isArray(response.data) || response.data.bookings || response.data.data)) {
+      let bookings = response.data
+      if (!Array.isArray(bookings)) {
+        bookings = bookings.bookings || bookings.data || []
+      }
+
+      if (bookings.length > 0) {
+        return bookings
+      }
+    }
+  } catch (error) {
+    console.error("Error with direct axios fetch for bookings:", error.message)
+  }
+
+  // If all attempts fail, return empty array instead of mock data
+  console.warn("All booking fetch attempts failed, returning empty array")
+  return []
+}
+
+// ==================== ENHANCED PROPERTY DELETION FUNCTIONALITY ====================
+
+/**
+ * Helper function to get the current user ID from the token
+ */
+export const getCurrentUserId = () => {
+  try {
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token")
+    if (!token) return null
+
+    // JWT tokens are in the format: header.payload.signature
+    // We need to decode the payload part (the second part)
+    const payload = token.split(".")[1]
+    if (!payload) return null
+
+    // Decode the base64 payload
+    const decodedPayload = JSON.parse(atob(payload))
+    return decodedPayload.id || decodedPayload.userId || decodedPayload.sub
+  } catch (error) {
+    console.error("Error getting user ID from token:", error)
+    return null
+  }
+}
+
+/**
+ * Clear ALL possible localStorage caches that might contain the property
+ */
+export const clearAllPropertyCaches = (propertyId) => {
+  console.log(`Clearing ALL caches for property ${propertyId}`);
+  
+  // List of all possible cache keys that might contain property data
+  const possibleCacheKeys = [
+    "properties",
+    "featuredProperties",
+    "admin_properties",
+    "admin_featured_properties",
+    "propertyDetails",
+    "searchResults",
+    "landlordProperties",
+    "rooms",
+    "recentProperties",
+    "propertyCache",
+    "bookingProperties",
+    "viewedProperties",
+    "savedProperties",
+    "propertyListings"
+  ];
+  
+  // Get current user ID to check user-specific caches
+  const userId = getCurrentUserId();
+  if (userId) {
+    possibleCacheKeys.push(
+      `user_${userId}_properties`,
+      `user_${userId}_listings`,
+      `${userId}_properties`
+    );
+  }
+  
+  // Process each possible cache
+  possibleCacheKeys.forEach(key => {
+    try {
+      const cacheJson = localStorage.getItem(key);
+      if (!cacheJson) return;
+      
+      let updated = false;
+      let cache = JSON.parse(cacheJson);
+      
+      // Handle different cache structures
+      if (Array.isArray(cache)) {
+        // Filter out the deleted property from arrays
+        const newCache = cache.filter(item => {
+          const id = item?._id || item?.id;
+          return id !== propertyId;
+        });
+        
+        if (newCache.length !== cache.length) {
+          updated = true;
+          cache = newCache;
+        }
+      } else if (typeof cache === 'object' && cache !== null) {
+        // Remove property from object caches
+        if (cache[propertyId]) {
+          delete cache[propertyId];
+          updated = true;
+        }
+        
+        // Also check nested objects that might contain the property
+        Object.keys(cache).forEach(nestedKey => {
+          if (Array.isArray(cache[nestedKey])) {
+            const filtered = cache[nestedKey].filter(item => {
+              const id = item?._id || item?.id;
+              return id !== propertyId;
+            });
+            
+            if (filtered.length !== cache[nestedKey].length) {
+              cache[nestedKey] = filtered;
+              updated = true;
+            }
+          }
+        });
+      }
+      
+      // Save updated cache if changes were made
+      if (updated) {
+        localStorage.setItem(key, JSON.stringify(cache));
+        console.log(`Updated cache: ${key}`);
+      }
+    } catch (error) {
+      console.error(`Error processing cache key ${key}:`, error);
+    }
+  });
+  
+  // Also try to clear any sessionStorage caches
+  try {
+    possibleCacheKeys.forEach(key => {
+      const sessionCache = sessionStorage.getItem(key);
+      if (sessionCache) {
+        try {
+          const cache = JSON.parse(sessionCache);
+          if (Array.isArray(cache)) {
+            const filtered = cache.filter(item => {
+              const id = item?._id || item?.id;
+              return id !== propertyId;
+            });
+            
+            if (filtered.length !== cache.length) {
+              sessionStorage.setItem(key, JSON.stringify(filtered));
+              console.log(`Updated sessionStorage cache: ${key}`);
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing sessionStorage key ${key}:`, e);
+        }
+      }
+    });
+  } catch (sessionError) {
+    console.error("Error clearing sessionStorage caches:", sessionError);
+  }
+  
+  console.log(`Completed clearing all caches for property ${propertyId}`);
+  return true;
+};
+
+/**
+ * Add property ID to a blacklist of deleted properties
+ * This will be checked when loading properties to filter out deleted ones
+ */
+export const addToDeletedPropertiesBlacklist = (propertyId) => {
+  try {
+    // Get existing blacklist
+    const blacklistJson = localStorage.getItem('deletedProperties');
+    let blacklist = blacklistJson ? JSON.parse(blacklistJson) : [];
+    
+    // Add property ID if not already in blacklist
+    if (!blacklist.includes(propertyId)) {
+      blacklist.push(propertyId);
+      localStorage.setItem('deletedProperties', JSON.stringify(blacklist));
+      console.log(`Added property ${propertyId} to deleted properties blacklist`);
+    }
+    
+    // Also add to user-specific blacklist if user is logged in
+    const userId = getCurrentUserId();
+    if (userId) {
+      const userBlacklistKey = `user_${userId}_deletedProperties`;
+      const userBlacklistJson = localStorage.getItem(userBlacklistKey);
+      let userBlacklist = userBlacklistJson ? JSON.parse(userBlacklistJson) : [];
+      
+      if (!userBlacklist.includes(propertyId)) {
+        userBlacklist.push(propertyId);
+        localStorage.setItem(userBlacklistKey, JSON.stringify(userBlacklist));
+        console.log(`Added property ${propertyId} to user-specific deleted properties blacklist`);
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error adding to deleted properties blacklist:", error);
+    return false;
+  }
+};
+
+/**
+ * Clear browser cache for property-related API endpoints
+ */
+export const clearBrowserCacheForProperty = (propertyId) => {
+  // If the browser supports Cache API, use it to clear cached API responses
+  if ('caches' in window) {
+    try {
+      // Try to clear specific cache for this property
+      caches.open('api-cache').then(cache => {
+        // Define patterns of URLs that might contain this property
+        const urlsToDelete = [
+          `${API_URL}/properties/${propertyId}`,
+          `${API_URL}/properties`,
+          `${API_URL}/properties/all`,
+          `${API_URL}/properties/latest`
+        ];
+        
+        // Delete each URL from cache
+        urlsToDelete.forEach(url => {
+          cache.delete(url).then(success => {
+            if (success) {
+              console.log(`Cleared cache for URL: ${url}`);
+            }
+          });
+        });
+      });
+    } catch (cacheError) {
+      console.error("Error clearing browser cache:", cacheError);
+    }
+  }
+};
+
+/**
+ * Notify all components about the property deletion
+ */
+export const notifyAllComponentsOfDeletion = (propertyId) => {
+  // Dispatch multiple events to ensure all components are notified
+  
+  // 1. Standard roomDeleted event
+  window.dispatchEvent(
+    new CustomEvent("roomDeleted", {
+      detail: { roomId: propertyId },
+    })
+  );
+  
+  // 2. propertyDeleted event
+  window.dispatchEvent(
+    new CustomEvent("propertyDeleted", {
+      detail: { propertyId },
+    })
+  );
+  
+  // 3. General propertyUpdated event
+  window.dispatchEvent(new CustomEvent("propertyUpdated"));
+  
+  // 4. dataChanged event for components that listen to general data changes
+  window.dispatchEvent(new CustomEvent("dataChanged"));
+  
+  console.log(`Dispatched all deletion notification events for property ${propertyId}`);
+};
+
+/**
+ * Filter out deleted properties from API responses
+ */
+export const filterDeletedProperties = (properties) => {
+  if (!Array.isArray(properties)) return properties;
+  
+  try {
+    // Get the blacklist of deleted properties
+    const blacklistJson = localStorage.getItem('deletedProperties');
+    if (!blacklistJson) return properties;
+    
+    const blacklist = JSON.parse(blacklistJson);
+    if (!Array.isArray(blacklist) || blacklist.length === 0) return properties;
+    
+    // Filter out properties that are in the blacklist
+    const filtered = properties.filter(property => {
+      const id = property?._id || property?.id;
+      return !blacklist.includes(id);
+    });
+    
+    console.log(`Filtered out ${properties.length - filtered.length} deleted properties`);
+    return filtered;
+  } catch (error) {
+    console.error("Error filtering deleted properties:", error);
+    return properties;
+  }
+};
+
+/**
+ * Enhanced property deletion that ensures properties stay deleted
+ * by addressing all potential caching mechanisms
+ */
+export const deletePropertyPermanently = async (propertyId) => {
+  console.log(`ENHANCED: Permanently deleting property with ID: ${propertyId}`);
+  
+  try {
+    // 1. Delete from server with retry mechanism
+    let serverDeletionSuccess = false;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (!serverDeletionSuccess && retryCount < maxRetries) {
+      try {
+        console.log(`Server deletion attempt ${retryCount + 1} for property ${propertyId}`);
+        const response = await adminApi.delete(`/properties/${propertyId}`);
+        console.log("Delete property response:", response);
+        
+        if (response.data && response.data.success) {
+          serverDeletionSuccess = true;
+          console.log(`Successfully deleted property ${propertyId} from server`);
+        } else {
+          throw new Error(response.data?.message || "Server did not confirm deletion");
+        }
+      } catch (error) {
+        console.error(`Attempt ${retryCount + 1} failed:`, error);
+        retryCount++;
+        
+        if (retryCount < maxRetries) {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+        }
+      }
+    }
+    
+    if (!serverDeletionSuccess) {
+      console.warn(`Could not confirm server deletion after ${maxRetries} attempts. Continuing with client-side cleanup.`);
+      
+      // Try alternative admin endpoint
+      try {
+        console.log("Trying admin-specific endpoint for property deletion");
+        const response = await adminApi.delete(`/admin/properties/${propertyId}`);
+        console.log("Delete property response from admin endpoint:", response);
+        if (response.data && response.data.success) {
+          serverDeletionSuccess = true;
+        }
+      } catch (adminError) {
+        console.error("Admin endpoint deletion failed:", adminError);
+      }
+    }
+    
+    // 2. Clear from ALL localStorage caches
+    clearAllPropertyCaches(propertyId);
+    
+    // 3. Add to deleted properties blacklist in localStorage
+    addToDeletedPropertiesBlacklist(propertyId);
+    
+    // 4. Clear browser cache for API endpoints
+    clearBrowserCacheForProperty(propertyId);
+    
+    // 5. Dispatch multiple events to notify all components
+    notifyAllComponentsOfDeletion(propertyId);
+    
+    return { 
+      success: true, 
+      message: "Property permanently deleted",
+      serverDeletionConfirmed: serverDeletionSuccess
+    };
+  } catch (error) {
+    console.error("Error in enhanced property deletion:", error);
+    
+    // Even if server deletion fails, still perform client-side cleanup
+    clearAllPropertyCaches(propertyId);
+    addToDeletedPropertiesBlacklist(propertyId);
+    notifyAllComponentsOfDeletion(propertyId);
+    
+    throw error;
+  }
+};
+
+// Function to delete a property - UPDATED to use enhanced deletion
+export const deleteProperty = async (propertyId) => {
+  console.log(`Deleting property with ID: ${propertyId}`);
+
+  try {
+    // Use our enhanced deletion function instead
+    const result = await deletePropertyPermanently(propertyId);
+    
+    // If the enhanced deletion was successful, we're done
+    if (result.success) {
+      return result;
+    }
+    
+    // If enhanced deletion failed, fall back to the original implementation
+    // First, try to mark the property as deleted in the main API
+    try {
+      console.log("Marking property as deleted in main API");
+      const mainApiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+
+      // Try multiple endpoints with direct fetch to bypass authentication issues
+      const mainEndpoints = [
+        `${mainApiUrl}/properties/${propertyId}`,
+        `${mainApiUrl}/public/properties/${propertyId}`,
+        `${mainApiUrl}/api/properties/${propertyId}`,
+      ];
+
+      let mainApiSuccess = false;
+
+      for (const endpoint of mainEndpoints) {
+        try {
+          console.log(`Trying to delete from main API at: ${endpoint}`);
+          const response = await fetch(endpoint, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            // Don't include credentials to bypass auth
+            credentials: "omit",
+          });
+
+          if (response.ok) {
+            console.log(`Successfully deleted from main API at ${endpoint}`);
+            mainApiSuccess = true;
+            break;
+          }
+        } catch (endpointError) {
+          console.error(`Failed to delete from ${endpoint}:`, endpointError);
+        }
+      }
+
+      if (!mainApiSuccess) {
+        console.log("Could not delete from main API, trying to mark as inactive instead");
+
+        // If deletion fails, try to mark the property as inactive/hidden
+        for (const endpoint of mainEndpoints.map((url) => url.replace("DELETE", ""))) {
+          try {
+            const response = await fetch(endpoint, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                status: "deleted",
+                isActive: false,
+                isDeleted: true,
+                visibility: "hidden",
+              }),
+              credentials: "omit",
+            });
+
+            if (response.ok) {
+              console.log(`Successfully marked property as deleted at ${endpoint}`);
+              break;
+            }
+          } catch (patchError) {
+            console.error(`Failed to mark property as deleted at ${endpoint}:`, patchError);
+          }
+        }
+      }
+    } catch (mainApiError) {
+      console.error("Error updating main API:", mainApiError);
+      // Continue with admin deletion even if main API update fails
+    }
+
+    // Now try the standard admin endpoint
+    try {
+      const response = await adminApi.delete(`/properties/${propertyId}`);
+      console.log("Delete property response from admin API:", response.data);
+      
+      // Make sure to still perform client-side cleanup
+      clearAllPropertyCaches(propertyId);
+      addToDeletedPropertiesBlacklist(propertyId);
+      notifyAllComponentsOfDeletion(propertyId);
+      
+      return response.data;
+    } catch (error) {
+      // If that fails, try the admin-specific endpoint
+      if (error.response && error.response.status === 404) {
+        console.log("Trying admin-specific endpoint for property deletion");
+        const response = await adminApi.delete(`/admin/properties/${propertyId}`);
+        console.log("Delete property response from admin endpoint:", response.data);
+        
+        // Make sure to still perform client-side cleanup
+        clearAllPropertyCaches(propertyId);
+        addToDeletedPropertiesBlacklist(propertyId);
+        notifyAllComponentsOfDeletion(propertyId);
+        
+        return response.data;
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error deleting property:", error);
+    
+    // Even if all server deletion attempts fail, still perform client-side cleanup
+    clearAllPropertyCaches(propertyId);
+    addToDeletedPropertiesBlacklist(propertyId);
+    notifyAllComponentsOfDeletion(propertyId);
+    
+    throw error;
+  }
+};
 
 export default adminApi

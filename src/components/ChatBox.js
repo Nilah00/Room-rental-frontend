@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { X, Send } from "lucide-react"
 import { Link } from "react-router-dom"
 import { getChatByIdOrCreate, markMessagesAsRead, sendMessageApi } from "../services/api"
-import { joinChatRoom, leaveChatRoom, sendMessage } from "../services/socket"
+import { joinChatRoom, leaveChatRoom } from "../services/socket"
 import "./ChatBox.css"
 
 function ChatBox({ onClose, landlordName, landlordId, propertyId, propertyTitle, isLoggedIn, currentUserId }) {
@@ -14,6 +14,7 @@ function ChatBox({ onClose, landlordName, landlordId, propertyId, propertyTitle,
   const [error, setError] = useState(null)
   const [chatId, setChatId] = useState(null)
   const messagesEndRef = useRef(null)
+  const [isSending, setIsSending] = useState(false)
 
   // Fetch chat history when component mounts
   useEffect(() => {
@@ -132,6 +133,12 @@ function ChatBox({ onClose, landlordName, landlordId, propertyId, propertyTitle,
   const handleSendMessage = async (e) => {
     e.preventDefault()
 
+    // Prevent multiple sends
+    if (isSending) {
+      console.log("Already sending a message, preventing duplicate")
+      return
+    }
+
     // Get the latest chatId from state to ensure we have the most current value
     const currentChatId = chatId
 
@@ -148,48 +155,53 @@ function ChatBox({ onClose, landlordName, landlordId, propertyId, propertyTitle,
 
     console.log("Sending message to chatId:", currentChatId, "with content:", message.trim())
 
+    // Set sending state to prevent duplicates
+    setIsSending(true)
+
+    // Store message content and clear input immediately
+    const messageContent = message.trim()
+    setMessage("")
+
+    // Generate a unique ID for this message
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+
     // Add message to local state immediately for UI responsiveness
     const newMessage = {
       sender: currentUserId,
-      content: message.trim(),
+      content: messageContent,
       timestamp: new Date(),
-      _id: `temp-${Date.now()}`, // Temporary ID until server response
+      _id: tempId,
       pending: true, // Mark as pending until confirmed by server
     }
 
     setChatHistory((prev) => [...prev, newMessage])
-    setMessage("")
 
     try {
       // First try the API method as it's more reliable
       console.log("Sending message via API")
-      const apiResponse = await sendMessageApi(currentChatId, message.trim())
+      const apiResponse = await sendMessageApi(currentChatId, messageContent, tempId)
       console.log("API message sent successfully:", apiResponse)
 
       // Update the message in chat history with the server response
       if (apiResponse && apiResponse.message) {
         setChatHistory((prev) =>
-          prev.map((msg) => (msg._id === newMessage._id ? { ...apiResponse.message, pending: false } : msg)),
+          prev.map((msg) => (msg._id === tempId ? { ...apiResponse.message, pending: false } : msg)),
         )
       } else {
         // Just mark as not pending if we got a response but no message data
-        setChatHistory((prev) => prev.map((msg) => (msg._id === newMessage._id ? { ...msg, pending: false } : msg)))
+        setChatHistory((prev) => prev.map((msg) => (msg._id === tempId ? { ...msg, pending: false } : msg)))
       }
 
-      // Also try socket for real-time updates to other users
-      try {
-        sendMessage(currentChatId, message.trim())
-      } catch (socketError) {
-        console.log("Socket send failed, but API succeeded:", socketError)
-        // This is okay since the API call worked
-      }
+      // Don't try to send via socket if API succeeded - this is causing duplicates
+      // The API should trigger the appropriate socket events on the server
     } catch (error) {
       console.error("Error sending message:", error)
 
       // Show error state for the message
-      setChatHistory((prev) =>
-        prev.map((msg) => (msg._id === newMessage._id ? { ...msg, pending: false, error: true } : msg)),
-      )
+      setChatHistory((prev) => prev.map((msg) => (msg._id === tempId ? { ...msg, pending: false, error: true } : msg)))
+    } finally {
+      // Reset sending state
+      setIsSending(false)
     }
   }
 
@@ -294,7 +306,7 @@ function ChatBox({ onClose, landlordName, landlordId, propertyId, propertyTitle,
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Type your message..."
         />
-        <button type="submit" disabled={!message.trim()}>
+        <button type="submit" disabled={!message.trim() || isSending}>
           <Send size={20} />
         </button>
       </form>
@@ -303,4 +315,3 @@ function ChatBox({ onClose, landlordName, landlordId, propertyId, propertyTitle,
 }
 
 export default ChatBox
-

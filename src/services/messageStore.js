@@ -1,115 +1,216 @@
-// Global message store to ensure consistency across components
-const messageStore = {
-  // Store messages by chat ID
-  messages: {},
+class MessageStore {
+  constructor() {
+    this.messages = {}
+    this.loadFromLocalStorage()
+  }
 
-  // Add a message to a specific chat
+  getMessages(chatId) {
+    // Return a copy to prevent direct modification
+    return this.messages[chatId] ? [...this.messages[chatId]] : []
+  }
+
+  // Add or update the addMessage method:
   addMessage(chatId, message) {
     if (!this.messages[chatId]) {
       this.messages[chatId] = []
     }
 
-    // Check if message already exists to avoid duplicates
-    const exists = this.messages[chatId].some(
-      (m) => (m._id && m._id === message._id) || (m.tempId && m.tempId === message.tempId),
-    )
+    // CRITICAL FIX: Check if this is a message from the current user
+    const currentUserId = this._getCurrentUserId()
+    const isOwnMessage = message.sender === currentUserId
 
-    if (!exists) {
-      this.messages[chatId].push(message)
-      console.log(`Added message to store for chat ${chatId}:`, message)
+    this.messages[chatId].push(message)
+    this._saveToLocalStorage()
 
-      // Save to localStorage as backup
-      this.saveToLocalStorage(chatId)
-
-      // Dispatch event to notify components
-      window.dispatchEvent(
-        new CustomEvent("messageStoreUpdated", {
-          detail: { chatId, messages: this.messages[chatId] },
-        }),
-      )
-    }
-
-    return this.messages[chatId]
-  },
-
-  // Get all messages for a specific chat
-  getMessages(chatId) {
-    if (!this.messages[chatId]) {
-      // Try to load from localStorage
-      const stored = localStorage.getItem(`messages_${chatId}`)
-      if (stored) {
-        try {
-          this.messages[chatId] = JSON.parse(stored)
-        } catch (e) {
-          console.error("Error parsing stored messages:", e)
-          this.messages[chatId] = []
+    // CRITICAL FIX: If this is our own message, update the chat in localStorage to clear unread count
+    if (isOwnMessage) {
+      try {
+        const chatStorageKey = `chat_${chatId}`
+        const chatJson = localStorage.getItem(chatStorageKey)
+        if (chatJson) {
+          const chat = JSON.parse(chatJson)
+          chat.unreadCount = 0
+          chat.lastMessage = message
+          localStorage.setItem(chatStorageKey, JSON.stringify(chat))
         }
-      } else {
-        this.messages[chatId] = []
+      } catch (e) {
+        console.error("Error updating chat in localStorage:", e)
       }
     }
-
-    return this.messages[chatId]
-  },
-
-  // Set all messages for a specific chat
-  setMessages(chatId, messages) {
-    this.messages[chatId] = messages
-
-    // Save to localStorage
-    this.saveToLocalStorage(chatId)
 
     // Dispatch event to notify components
     window.dispatchEvent(
       new CustomEvent("messageStoreUpdated", {
-        detail: { chatId, messages: this.messages[chatId] },
+        detail: {
+          chatId,
+          messages: this.getMessages(chatId), // Use getter to get a copy
+          isOwnMessage: isOwnMessage,
+        },
       }),
     )
+  }
 
-    return this.messages[chatId]
-  },
+  // Add or update the markAllAsRead function:
+  markAllAsRead(chatId, userId) {
+    if (!chatId || !userId || !this.messages[chatId]) return
 
-  // Save messages to localStorage
-  saveToLocalStorage(chatId) {
-    try {
-      localStorage.setItem(`messages_${chatId}`, JSON.stringify(this.messages[chatId]))
-    } catch (e) {
-      console.error("Error saving messages to localStorage:", e)
-    }
-  },
+    let updated = false
 
-  // Update a specific message in a chat
-  updateMessage(chatId, messageId, updates) {
-    if (!this.messages[chatId]) {
-      return null
-    }
-
-    const index = this.messages[chatId].findIndex(
-      (m) => (m._id && m._id === messageId) || (m.tempId && m.tempId === messageId),
-    )
-
-    if (index !== -1) {
-      this.messages[chatId][index] = {
-        ...this.messages[chatId][index],
-        ...updates,
+    // Update read status for all messages not sent by this user
+    this.messages[chatId].forEach((message) => {
+      if (message.sender !== userId && !message.read) {
+        message.read = true
+        updated = true
       }
+    })
+
+    if (updated) {
+      console.log("Marked all messages as read for user:", userId)
 
       // Save to localStorage
-      this.saveToLocalStorage(chatId)
+      this._saveToLocalStorage()
 
       // Dispatch event to notify components
       window.dispatchEvent(
         new CustomEvent("messageStoreUpdated", {
-          detail: { chatId, messages: this.messages[chatId] },
+          detail: {
+            chatId,
+            messages: this.getMessages(chatId), // Use getter to get a copy
+          },
         }),
       )
 
-      return this.messages[chatId][index]
+      // Also dispatch a specific event for unread count updates
+      window.dispatchEvent(
+        new CustomEvent("unreadCountUpdated", {
+          detail: {
+            chatId,
+            unreadCount: 0, // We've just marked all as read
+            userId,
+          },
+        }),
+      )
+    }
+  }
+
+  _saveToLocalStorage() {
+    localStorage.setItem("messages", JSON.stringify(this.messages))
+  }
+
+  loadFromLocalStorage() {
+    const storedMessages = localStorage.getItem("messages")
+    if (storedMessages) {
+      this.messages = JSON.parse(storedMessages)
+    }
+  }
+
+  // CRITICAL FIX: Add the missing reloadFromLocalStorage method
+  reloadFromLocalStorage() {
+    console.log("Reloading messages from localStorage")
+    this.loadFromLocalStorage()
+
+    // Notify components that messages have been reloaded
+    for (const chatId in this.messages) {
+      window.dispatchEvent(
+        new CustomEvent("messageStoreUpdated", {
+          detail: {
+            chatId,
+            messages: this.getMessages(chatId),
+          },
+        }),
+      )
+    }
+  }
+
+  // Add this helper method to messageStore
+  _getCurrentUserId() {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return null
+
+      const payload = token.split(".")[1]
+      if (!payload) return null
+
+      const decodedPayload = JSON.parse(atob(payload))
+      return decodedPayload.userId || decodedPayload.id || decodedPayload.sub
+    } catch (error) {
+      console.error("Error getting user ID from token:", error)
+      return null
+    }
+  }
+
+  // Add method to update message status
+  updateMessageStatus(chatId, messageId, updates) {
+    if (!chatId || !messageId || !this.messages[chatId]) return false
+
+    let updated = false
+    this.messages[chatId] = this.messages[chatId].map((message) => {
+      if (message._id === messageId || message.tempId === messageId) {
+        updated = true
+        return { ...message, ...updates }
+      }
+      return message
+    })
+
+    if (updated) {
+      this._saveToLocalStorage()
+
+      // Dispatch event to notify components
+      window.dispatchEvent(
+        new CustomEvent("messageStoreUpdated", {
+          detail: {
+            chatId,
+            messages: this.getMessages(chatId),
+          },
+        }),
+      )
     }
 
-    return null
-  },
+    return updated
+  }
+
+  // Add method to update a message
+  updateMessage(chatId, messageId, updates) {
+    return this.updateMessageStatus(chatId, messageId, updates)
+  }
+
+  // Add method to add multiple messages
+  addMessages(chatId, messages) {
+    if (!chatId || !messages || !Array.isArray(messages) || messages.length === 0) return
+
+    if (!this.messages[chatId]) {
+      this.messages[chatId] = []
+    }
+
+    // Add each message
+    let added = false
+    messages.forEach((message) => {
+      // Check if message already exists
+      const exists = this.messages[chatId].some(
+        (m) => (m._id && m._id === message._id) || (m.tempId && m.tempId === message.tempId),
+      )
+
+      if (!exists) {
+        this.messages[chatId].push(message)
+        added = true
+      }
+    })
+
+    if (added) {
+      this._saveToLocalStorage()
+
+      // Dispatch event to notify components
+      window.dispatchEvent(
+        new CustomEvent("messageStoreUpdated", {
+          detail: {
+            chatId,
+            messages: this.getMessages(chatId),
+          },
+        }),
+      )
+    }
+  }
 }
 
+const messageStore = new MessageStore()
 export default messageStore
-

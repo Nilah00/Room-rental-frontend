@@ -1,5 +1,6 @@
 import axios from "axios"
 import messageStore from "./messageStore"
+import { initializeSocket, sendMessage as socketSendMessage, isSocketConnected } from "./socket"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
@@ -863,46 +864,99 @@ export const getUserProperties = () => {
   })
 }
 
+// Update the refreshToken function in api.js
 export const refreshToken = async () => {
   try {
+    console.log("Attempting to refresh token")
+
     // Get the refresh token from localStorage
     const refreshToken = localStorage.getItem("refreshToken")
+    const userId = getCurrentUserId()
 
     if (!refreshToken) {
+      console.error("No refresh token available")
       throw new Error("No refresh token available")
     }
 
     // Make a direct axios call without using the intercepted instance
-    const response = await axios.post(
-      `${API_URL}/auth/refresh-token`,
-      { refreshToken },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    )
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+
+    // Try different refresh token endpoints
+    const endpoints = [`${API_URL}/auth/refresh-token`, `${API_URL}/auth/refresh`, `${API_URL}/refresh-token`]
+
+    let response = null
+    let error = null
+
+    // Try each endpoint until one works
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying refresh token endpoint: ${endpoint}`)
+        response = await axios.post(
+          endpoint,
+          { refreshToken, userId },
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        )
+
+        if (response.data && response.data.token) {
+          break // Success, exit the loop
+        }
+      } catch (err) {
+        error = err
+        console.error(`Failed with endpoint ${endpoint}:`, err)
+        // Continue to next endpoint
+      }
+    }
+
+    if (!response || !response.data || !response.data.token) {
+      throw error || new Error("Failed to refresh token with all endpoints")
+    }
 
     console.log("Token refresh response:", response)
 
-    if (response.data && response.data.token) {
-      const { token, refreshToken: newRefreshToken } = response.data
-      localStorage.setItem("token", token)
+    const { token, refreshToken: newRefreshToken } = response.data
+    localStorage.setItem("token", token)
 
-      // Save the new refresh token if provided
-      if (newRefreshToken) {
-        localStorage.setItem("refreshToken", newRefreshToken)
-      }
-
-      return token
-    } else {
-      throw new Error("Invalid token refresh response")
+    // Save the new refresh token if provided
+    if (newRefreshToken) {
+      localStorage.setItem("refreshToken", newRefreshToken)
     }
+
+    // Dispatch event to notify components that token was refreshed
+    window.dispatchEvent(
+      new CustomEvent("tokenRefreshed", {
+        detail: { token },
+      }),
+    )
+
+    return token
   } catch (error) {
     console.error("Error refreshing token:", error)
-    // Clear tokens on refresh failure
-    localStorage.removeItem("token")
-    localStorage.removeItem("refreshToken")
+
+    // Only clear tokens if we're sure it's an auth error
+    if (
+      error.response &&
+      (error.response.status === 401 ||
+        error.response.status === 403 ||
+        (error.response.data &&
+          error.response.data.message &&
+          (error.response.data.message.includes("token") || error.response.data.message.includes("auth"))))
+    ) {
+      console.log("Clearing tokens due to auth error")
+      localStorage.removeItem("token")
+      localStorage.removeItem("refreshToken")
+
+      // Dispatch auth error event
+      window.dispatchEvent(
+        new CustomEvent("authError", {
+          detail: { message: "Your session has expired. Please log in again." },
+        }),
+      )
+    }
+
     throw error
   }
 }
@@ -1633,47 +1687,82 @@ export const getChatById = async (chatId) => {
   }
 }
 
-export const sendMessageApi = async (chatId, content) => {
-  console.log("sendMessageApi called with:", { chatId, content })
+// IMPROVED: Send message function that uses socket.io directly for real-time delivery
+// Update the sendMessageApi function to handle auth errors better
+export const sendMessageApi = async (chatId, content, tempId = null) => {
+  console.log("sendMessageApi called with:", { chatId, content, tempId })
 
   if (!chatId || !content) {
-    console.error("Cannot send message via API: chatId or content missing", { chatId, content })
+    console.error("Cannot send message: chatId or content missing", { chatId, content })
     throw new Error("Chat ID and message content are required")
   }
 
   try {
-    const token = localStorage.getItem("token")
-    if (!token) {
-      console.error("No authentication token found")
-      throw new Error("Authentication required")
+    // Get current user ID for creating messages
+    const userId = getCurrentUserId()
+    if (!userId) {
+      throw new Error("User ID not found. Please log in again.")
     }
 
-    // Get current user ID for creating mock messages if needed
-    const userId = getCurrentUserId()
-
     // Create a temporary message with a unique ID
-    const tempId = `temp-${Date.now()}`
+    const messageId = tempId || `temp-${Date.now()}`
     const tempMessage = {
-      tempId,
-      _id: tempId, // Use tempId as _id for now
+      tempId: messageId,
+      _id: messageId, // Use tempId as _id for now
       sender: userId,
       content,
       timestamp: new Date(),
       pending: true,
     }
 
-    // Add to message store immediately
+    // Add to message store immediately for instant UI update
     messageStore.addMessage(chatId, tempMessage)
 
+    // Try to send via socket first for real-time delivery
+    if (isSocketConnected()) {
+      try {
+        console.log("Sending message via socket.io")
+        await socketSendMessage(chatId, content, messageId)
+        console.log("Message sent successfully via socket")
+
+        // We don't need to update the message store here as the socket will
+        // broadcast the message back to us with the proper ID
+        return { success: true }
+      } catch (socketError) {
+        console.error("Socket send failed, falling back to API:", socketError)
+        // Continue to API fallback
+      }
+    } else {
+      console.log("Socket not connected, using API fallback")
+      // Initialize socket for future messages
+      initializeSocket()
+    }
+
+    // Fallback to API if socket fails or is not connected
+    let token = localStorage.getItem("token")
+    if (!token) {
+      console.error("No authentication token found")
+
+      // Try to refresh the token
+      try {
+        token = await refreshToken()
+        console.log("Token refreshed successfully")
+      } catch (refreshError) {
+        console.error("Failed to refresh token:", refreshError)
+        messageStore.updateMessageStatus(chatId, messageId, { pending: false, error: true })
+        throw new Error("Authentication required")
+      }
+    }
+
     // Use direct axios call to ensure proper headers
-    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
     console.log("API URL:", API_URL)
 
     try {
       const response = await axios({
         method: "post",
         url: `${API_URL}/chats/message`,
-        data: { chatId, content },
+        data: { chatId, content, tempId: messageId },
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -1684,81 +1773,102 @@ export const sendMessageApi = async (chatId, content) => {
 
       if (response.data && response.data.message) {
         // Update the temporary message with the real message data
-        messageStore.updateMessage(chatId, tempId, {
+        messageStore.updateMessage(chatId, messageId, {
           ...response.data.message,
           pending: false,
-          tempId, // Keep the tempId for reference
+          tempId: messageId, // Keep the tempId for reference
         })
       } else {
         // Just mark as not pending if we got a response but no message data
-        messageStore.updateMessage(chatId, tempId, { pending: false })
+        messageStore.updateMessage(chatId, messageId, { pending: false })
       }
 
       return response.data
     } catch (axiosError) {
       console.error("Error in sendMessageApi:", axiosError)
 
-      // If we get a 403 error, create a mock response
-      if (axiosError.response && axiosError.response.status === 403) {
-        console.log("Received 403 error when sending message, creating mock response")
+      // Check if it's an auth error
+      if (axiosError.response && (axiosError.response.status === 401 || axiosError.response.status === 403)) {
+        console.log("Authentication error, attempting to refresh token")
 
-        // Create a mock message
-        const mockMessage = {
-          _id: `mock-${Date.now()}`,
-          sender: userId,
-          content: content,
-          timestamp: new Date(),
-          read: false,
-          tempId, // Keep the tempId for reference
-        }
+        try {
+          // Try to refresh the token
+          const newToken = await refreshToken()
+          console.log("Token refreshed, retrying message send")
 
-        // Update the temporary message with the mock data
-        messageStore.updateMessage(chatId, tempId, {
-          ...mockMessage,
-          pending: false,
-        })
+          // Retry the request with the new token
+          const retryResponse = await axios({
+            method: "post",
+            url: `${API_URL}/chats/message`,
+            data: { chatId, content, tempId: messageId },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${newToken}`,
+            },
+          })
 
-        // Return a mock response
-        return {
-          success: true,
-          message: mockMessage,
+          console.log("Retry message send response:", retryResponse)
+
+          if (retryResponse.data && retryResponse.data.message) {
+            // Update the temporary message with the real message data
+            messageStore.updateMessage(chatId, messageId, {
+              ...retryResponse.data.message,
+              pending: false,
+              tempId: messageId, // Keep the tempId for reference
+            })
+          } else {
+            // Just mark as not pending if we got a response but no message data
+            messageStore.updateMessage(chatId, messageId, { pending: false })
+          }
+
+          return retryResponse.data
+        } catch (refreshError) {
+          console.error("Failed to refresh token and retry:", refreshError)
+          messageStore.updateMessage(chatId, messageId, { pending: false, error: true })
+          throw new Error("Authentication failed. Please log in again.")
         }
       }
 
       // Mark message as error
-      messageStore.updateMessage(chatId, tempId, {
+      messageStore.updateMessage(chatId, messageId, {
         pending: false,
         error: true,
       })
 
-      // Re-throw the error if it's not a 403
       throw axiosError
     }
   } catch (error) {
-    console.error("Error sending message via API:", error)
-
-    // Log more detailed error information
-    if (error.response) {
-      console.error("Error response data:", error.response.data)
-      console.error("Error response status:", error.response.status)
-    } else if (error.request) {
-      console.error("No response received:", error.request)
-    }
-
+    console.error("Error sending message:", error)
     throw error
   }
 }
 
+// Update the markMessagesAsRead function in the API service to be more reliable
+
+// Find the markMessagesAsRead function and update it:
 export const markMessagesAsRead = async (chatId) => {
   try {
     const token = localStorage.getItem("token")
     if (!token) {
       console.error("No authentication token found")
-      throw new Error("Authentication required")
+      return { success: false, reason: "No token" }
     }
 
+    // Update local message store first for immediate UI feedback
+    const userId = getCurrentUserId()
+    if (userId) {
+      messageStore.markAllAsRead(chatId, userId)
+    }
+
+    // Dispatch event to update notification badges immediately
+    window.dispatchEvent(
+      new CustomEvent("updateNotificationBadges", {
+        detail: { chatId },
+      }),
+    )
+
     // Use direct axios call to ensure proper headers
-    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api"
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
     const response = await axios({
       method: "patch",
@@ -1770,10 +1880,11 @@ export const markMessagesAsRead = async (chatId) => {
     })
 
     console.log("Mark messages as read response:", response)
-    return response.data
+    return { success: true, data: response.data }
   } catch (error) {
     console.error("Error marking messages as read:", error)
-    return { success: false }
+    // Even if API call fails, we've already updated locally
+    return { success: false, error }
   }
 }
 
@@ -1875,4 +1986,3 @@ export const getPropertyCoordinates = (property) => {
 }
 
 export default api
-

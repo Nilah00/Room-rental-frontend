@@ -14,6 +14,21 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
   const [chatId, setChatId] = useState(null)
   const [deletedChats, setDeletedChats] = useState([])
 
+  // CRITICAL FIX: Function to check if the last message is from the current user
+  const isLastMessageFromCurrentUser = (chat) => {
+    return chat && chat.lastMessage && chat.lastMessage.sender === currentUserId
+  }
+
+  // CRITICAL FIX: Function to check if a chat should show a badge
+  const shouldShowBadge = (chat) => {
+    // Never show badge if last message is from current user
+    if (isLastMessageFromCurrentUser(chat)) {
+      return false
+    }
+    // Only show badge if there are unread messages
+    return chat.unreadCount > 0
+  }
+
   // Load deleted chats when component mounts
   useEffect(() => {
     try {
@@ -24,6 +39,34 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
     } catch (e) {
       console.error("Error loading deleted chats:", e)
       setDeletedChats([])
+    }
+  }, [currentUserId])
+
+  // CRITICAL FIX: Add effect to clear badges for own messages
+  useEffect(() => {
+    // Function to clear badges for own messages
+    const clearBadgesForOwnMessages = () => {
+      setChats((prevChats) => {
+        let updated = false
+        const newChats = prevChats.map((chat) => {
+          if (isLastMessageFromCurrentUser(chat) && chat.unreadCount > 0) {
+            updated = true
+            return { ...chat, unreadCount: 0 }
+          }
+          return chat
+        })
+        return updated ? newChats : prevChats
+      })
+    }
+
+    // Run immediately
+    clearBadgesForOwnMessages()
+
+    // Set up interval to periodically check
+    const intervalId = setInterval(clearBadgesForOwnMessages, 1000)
+
+    return () => {
+      clearInterval(intervalId)
     }
   }, [currentUserId])
 
@@ -41,7 +84,16 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
 
         // Filter out deleted chats
         const filteredChats = chatsData.filter((chat) => !deletedChats.includes(chat._id))
-        setChats(filteredChats)
+
+        // CRITICAL FIX: Process chats to remove unread counts for chats where the last message is from the current user
+        const processedChats = filteredChats.map((chat) => {
+          if (isLastMessageFromCurrentUser(chat)) {
+            return { ...chat, unreadCount: 0 }
+          }
+          return chat
+        })
+
+        setChats(processedChats)
       } catch (err) {
         console.error("Error fetching chats:", err)
         setError("Failed to load chats. Please try again.")
@@ -58,12 +110,48 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
     return () => {
       clearInterval(intervalId)
     }
-  }, [isOpen, deletedChats])
+  }, [isOpen, deletedChats, currentUserId])
 
   // Listen for new messages and chat notifications
   useEffect(() => {
     const handleNewMessage = (event) => {
-      const { chatId } = event.detail
+      const { chatId, message } = event.detail
+
+      // CRITICAL FIX: Don't increment unread count for messages sent by the current user
+      if (message && message.sender === currentUserId) {
+        console.log("Message was sent by current user, clearing unread count")
+
+        // Update the chat list to clear unread count for this chat
+        setChats((prevChats) => {
+          return prevChats.map((chat) => {
+            if (chat._id === chatId) {
+              return {
+                ...chat,
+                unreadCount: 0,
+                lastMessage: message,
+                updatedAt: new Date(),
+              }
+            }
+            return chat
+          })
+        })
+
+        // Also update the chat in localStorage
+        try {
+          const chatKey = `chat_${chatId}`
+          const chatJson = localStorage.getItem(chatKey)
+          if (chatJson) {
+            const chat = JSON.parse(chatJson)
+            chat.unreadCount = 0
+            chat.lastMessage = message
+            localStorage.setItem(chatKey, JSON.stringify(chat))
+          }
+        } catch (e) {
+          console.error("Error updating chat in localStorage:", e)
+        }
+
+        return
+      }
 
       // Update the chat list to show the new message
       setChats((prevChats) => {
@@ -75,7 +163,16 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
           getUserChats().then((newChats) => {
             // Filter out deleted chats
             const filteredChats = newChats.filter((chat) => !deletedChats.includes(chat._id))
-            setChats(filteredChats)
+
+            // Process chats to remove unread counts for chats where the last message is from the current user
+            const processedChats = filteredChats.map((chat) => {
+              if (isLastMessageFromCurrentUser(chat)) {
+                return { ...chat, unreadCount: 0 }
+              }
+              return chat
+            })
+
+            setChats(processedChats)
           })
           return prevChats
         }
@@ -85,7 +182,8 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
             // If this is the chat that received a new message, update it
             return {
               ...chat,
-              unreadCount: chat.unreadCount + 1,
+              lastMessage: message,
+              unreadCount: message.sender === currentUserId ? 0 : chat.unreadCount + 1,
               updatedAt: new Date(),
             }
           }
@@ -99,18 +197,90 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
       getUserChats().then((chatsData) => {
         // Filter out deleted chats
         const filteredChats = chatsData.filter((chat) => !deletedChats.includes(chat._id))
-        setChats(filteredChats)
+
+        // Process chats to remove unread counts for chats where the last message is from the current user
+        const processedChats = filteredChats.map((chat) => {
+          if (isLastMessageFromCurrentUser(chat)) {
+            return { ...chat, unreadCount: 0 }
+          }
+          return chat
+        })
+
+        setChats(processedChats)
       })
+    }
+
+    // CRITICAL FIX: Add handler for messagesRead events
+    const handleMessagesRead = (event) => {
+      if (!event.detail) return
+
+      const { chatId: readChatId } = event.detail
+
+      // Update the chat list to reflect read messages
+      setChats((prevChats) => {
+        return prevChats.map((chat) => {
+          if (chat._id === readChatId) {
+            // Return the chat with unreadCount set to 0
+            return {
+              ...chat,
+              unreadCount: 0,
+            }
+          }
+          return chat
+        })
+      })
+    }
+
+    // CRITICAL FIX: Add handler for badge count updates
+    const handleBadgeCountUpdated = (event) => {
+      if (!event.detail) return
+
+      const { chatId, count, senderId } = event.detail
+
+      // If this is our own message, always set count to 0
+      if (senderId === currentUserId) {
+        setChats((prevChats) => {
+          return prevChats.map((chat) => {
+            if (chat._id === chatId) {
+              return {
+                ...chat,
+                unreadCount: 0,
+              }
+            }
+            return chat
+          })
+        })
+        return
+      }
+
+      // Update the chat list with the new unread count
+      if (chatId) {
+        setChats((prevChats) => {
+          return prevChats.map((chat) => {
+            if (chat._id === chatId) {
+              return {
+                ...chat,
+                unreadCount: count,
+              }
+            }
+            return chat
+          })
+        })
+      }
     }
 
     window.addEventListener("newMessage", handleNewMessage)
     window.addEventListener("chatNotification", handleChatNotification)
+    window.addEventListener("messagesRead", handleMessagesRead)
+    window.addEventListener("badgeCountUpdated", handleBadgeCountUpdated)
 
     return () => {
       window.removeEventListener("newMessage", handleNewMessage)
       window.removeEventListener("chatNotification", handleChatNotification)
+      window.removeEventListener("messagesRead", handleMessagesRead)
+      window.removeEventListener("badgeCountUpdated", handleBadgeCountUpdated)
     }
-  }, [deletedChats])
+  }, [deletedChats, currentUserId])
 
   // Add this effect to listen for chat cleared events
   useEffect(() => {
@@ -179,14 +349,26 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
       // Mark messages as read
       if (chat.unreadCount > 0) {
         markMessagesAsRead(chat._id)
-          .then(() => console.log("Messages marked as read"))
+          .then(() => {
+            console.log("Messages marked as read")
+
+            // Update the chat in the local state immediately
+            setChats((prevChats) => prevChats.map((c) => (c._id === chat._id ? { ...c, unreadCount: 0 } : c)))
+
+            // Dispatch an event to update other components
+            window.dispatchEvent(
+              new CustomEvent("messagesRead", {
+                detail: { chatId: chat._id, userId: currentUserId },
+              }),
+            )
+          })
           .catch((err) => console.error("Error marking messages as read:", err))
       }
 
       // Store the full chat data in localStorage before navigating
       try {
         const chatStorageKey = `chat_${chat._id}`
-        localStorage.setItem(chatStorageKey, JSON.stringify(chat))
+        localStorage.setItem(chatStorageKey, JSON.stringify({ ...chat, unreadCount: 0 }))
         console.log("Stored chat in localStorage before navigation:", chat)
       } catch (storageError) {
         console.error("Error storing chat in localStorage:", storageError)
@@ -198,7 +380,7 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
           otherParticipant: chat.otherParticipant,
           propertyId: chat.property?._id || chat.propertyId,
           propertyTitle: chat.property?.title || chat.propertyTitle || "Property Chat",
-          fullChat: chat, // Pass the full chat data
+          fullChat: { ...chat, unreadCount: 0 }, // Pass the full chat data with unreadCount set to 0
         },
       })
 
@@ -264,42 +446,54 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
         </div>
       ) : (
         <div className="chat-list">
-          {chats.map((chat) => (
-            <div
-              key={chat._id}
-              className={`chat-list-item ${chat.unreadCount > 0 ? "unread" : ""} ${
-                chatId === chat._id ? "active" : ""
-              }`}
-              onClick={() => handleChatSelect(chat)}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="user-avatar">
-                <div className="avatar-circle"></div>
-              </div>
-              <div className="chat-list-item-content">
-                <div className="chat-list-item-header">
-                  <h4>
-                    {chat.otherParticipant?.name ||
-                      (chat.participants && chat.participants.find((p) => p._id !== currentUserId)?.name) ||
-                      "Landlord"}
-                  </h4>
-                  <span className="chat-list-item-time">{formatDate(chat.updatedAt)}</span>
+          {chats.map((chat) => {
+            // CRITICAL FIX: Check if last message is from current user
+            const isOwnLastMessage = isLastMessageFromCurrentUser(chat)
+            // CRITICAL FIX: Force unreadCount to 0 if last message is from current user
+            const displayUnreadCount = isOwnLastMessage ? 0 : chat.unreadCount
+
+            return (
+              <div
+                key={chat._id}
+                className={`chat-list-item ${displayUnreadCount > 0 ? "unread" : ""} ${
+                  chatId === chat._id ? "active" : ""
+                }`}
+                onClick={() => handleChatSelect(chat)}
+                role="button"
+                tabIndex={0}
+                data-chat-id={chat._id}
+                data-own-last-message={isOwnLastMessage ? "true" : "false"}
+              >
+                <div className="user-avatar">
+                  <div className="avatar-circle"></div>
                 </div>
-                <p className="chat-list-item-property">
-                  {chat.property?.title || chat.propertyTitle || "Property Chat"}
-                </p>
-                <p className={`chat-list-item-preview ${chat.unreadCount > 0 ? "font-bold" : ""}`}>
-                  {chat.lastMessage && chat.lastMessage.content
-                    ? chat.lastMessage.content
-                    : chat.messages && chat.messages.length > 0
-                      ? chat.messages[chat.messages.length - 1].content
-                      : "No messages yet"}
-                </p>
-                {chat.unreadCount > 0 && <span className="chat-list-item-badge">{chat.unreadCount}</span>}
+                <div className="chat-list-item-content">
+                  <div className="chat-list-item-header">
+                    <h4>
+                      {chat.otherParticipant?.name ||
+                        (chat.participants && chat.participants.find((p) => p._id !== currentUserId)?.name) ||
+                        "Landlord"}
+                    </h4>
+                    <span className="chat-list-item-time">{formatDate(chat.updatedAt)}</span>
+                  </div>
+                  <p className="chat-list-item-property">
+                    {chat.property?.title || chat.propertyTitle || "Property Chat"}
+                  </p>
+                  <p className={`chat-list-item-preview ${displayUnreadCount > 0 ? "font-bold" : ""}`}>
+                    {chat.lastMessage && chat.lastMessage.content
+                      ? chat.lastMessage.content
+                      : chat.messages && chat.messages.length > 0
+                        ? chat.messages[chat.messages.length - 1].content
+                        : "No messages yet"}
+                  </p>
+                  {/* CRITICAL FIX: Only show badge if not own message and has unread count */}
+                  {!isOwnLastMessage && displayUnreadCount > 0 && (
+                    <span className="chat-list-item-badge">{displayUnreadCount}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -307,4 +501,3 @@ function ChatList({ isOpen, onClose, currentUserId, onChatSelect }) {
 }
 
 export default ChatList
-
