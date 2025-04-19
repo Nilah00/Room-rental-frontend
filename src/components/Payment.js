@@ -488,7 +488,7 @@ export default function Payment() {
                 onClick={() => setPaymentMethod("esewa")}
               >
                 <div className="payment-option-logo">
-                  <img src="/placeholder.svg?height=40&width=80" alt="eSewa" />
+                  <img src="https://th.bing.com/th/id/R.cb695fdced655b34c1b18fb31e5c3add?rik=dj0PLrOfUVBTYw&riu=http%3a%2f%2fictbyte.com%2fwp-content%2fuploads%2f2020%2f07%2fesewalogo.png&ehk=9tPmHIwD%2bcGhKCjvWss%2by0dXsULHApVekngwZS7ykyw%3d&risl=&pid=ImgRaw&r=0 " alt="eSewa" />
                 </div>
                 <div className="payment-option-details">
                   <h3>eSewa</h3>
