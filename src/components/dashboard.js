@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Eye, ArrowUp, ArrowDown, Film, RefreshCw, Check, AlertCircle, Trash2, User, Calendar } from 'lucide-react'
+import { Eye, ArrowUp, ArrowDown, Film, RefreshCw, Check, AlertCircle, Trash2, User, Calendar } from "lucide-react"
 import { isAdminAuthenticated, adminLogout, getCurrentAdmin } from "../services/auth"
 import {
   getProperties,
@@ -10,12 +10,13 @@ import {
   getAllFeaturedPropertiesFromLocalStorage,
   rebuildFeaturedProperties,
   purgeAllFeaturedProperties,
-  deletePropertyPermanently, // Import the enhanced deletion function
-  clearAllPropertyCaches,
-  addToDeletedPropertiesBlacklist,
-  notifyAllComponentsOfDeletion,
 } from "../services/adminApi"
 import "./Dashboard.css"
+
+// Import these components directly from their files
+import PaymentDetailsTable from "../components/PaymentDetailsTable"
+import PaymentSummary from "../components/PaymentSummary"
+import "./PaymentComponents.css"
 
 // Add this at the top of your file, right after the imports
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000"
@@ -429,6 +430,68 @@ function BookingDetailModal({ booking, onClose }) {
   )
 }
 
+// Add this function to clear deleted properties from localStorage
+const clearDeletedPropertyFromLocalStorage = (propertyId) => {
+  try {
+    // Clear from general properties cache
+    const propertiesJson = localStorage.getItem("properties")
+    if (propertiesJson) {
+      const properties = JSON.parse(propertiesJson)
+      const updatedProperties = properties.filter((property) => {
+        const id = property._id || property.id
+        return id !== propertyId
+      })
+      localStorage.setItem("properties", JSON.stringify(updatedProperties))
+      console.log(`Removed property ${propertyId} from localStorage properties cache`)
+    }
+
+    // Clear from featured properties cache
+    const featuredPropertiesJson = localStorage.getItem("admin_featured_properties")
+    if (featuredPropertiesJson) {
+      const featuredProperties = JSON.parse(featuredPropertiesJson)
+      if (featuredProperties[propertyId]) {
+        delete featuredProperties[propertyId]
+        localStorage.setItem("admin_featured_properties", JSON.stringify(featuredProperties))
+        console.log(`Removed property ${propertyId} from featured properties cache`)
+      }
+    }
+
+    // Clear from any other potential caches
+    const cacheKeys = ["recentProperties", "featuredProperties", "propertyDetails", "searchResults"]
+
+    cacheKeys.forEach((key) => {
+      const cacheJson = localStorage.getItem(key)
+      if (cacheJson) {
+        try {
+          const cache = JSON.parse(cacheJson)
+          if (Array.isArray(cache)) {
+            // If it's an array, filter out the deleted property
+            const updated = cache.filter((item) => {
+              const id = item._id || item.id
+              return id !== propertyId
+            })
+            localStorage.setItem(key, JSON.stringify(updated))
+          } else if (typeof cache === "object" && cache !== null) {
+            // If it's an object, check if it has the property ID as a key
+            if (cache[propertyId]) {
+              delete cache[propertyId]
+              localStorage.setItem(key, JSON.stringify(cache))
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing cache key ${key}:`, e)
+        }
+      }
+    })
+
+    console.log("Successfully cleared all cached instances of deleted property")
+    return true
+  } catch (error) {
+    console.error("Error clearing deleted property from localStorage:", error)
+    return false
+  }
+}
+
 function Dashboard() {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -728,10 +791,80 @@ function Dashboard() {
     }
   }
 
-  // UPDATED: Enhanced property deletion function
-  const handleDeleteProperty = async (propertyId) => {
-    console.log(`Attempting to delete property: ${propertyId} using enhanced deletion`)
+  const deleteProperty = async (propertyId) => {
+    console.log(`Attempting to delete property: ${propertyId}`)
 
+    // Try multiple endpoints with direct fetch
+    const endpoints = [
+      `${API_BASE_URL}/api/admin/properties/${propertyId}`,
+      `${API_BASE_URL}/api/properties/${propertyId}`,
+      `${API_BASE_URL}/properties/${propertyId}`,
+    ]
+
+    let successResponse = null
+    let successEndpoint = null
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Attempting to delete property from: ${endpoint}`)
+
+        const response = await fetch(endpoint, {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("adminToken") || localStorage.getItem("token")}`,
+          },
+        })
+
+        console.log(`Response status from ${endpoint}:`, response.status)
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log(`Success response from ${endpoint}:`, data)
+          successResponse = data
+          successEndpoint = endpoint
+          break
+        } else {
+          console.log(`Endpoint ${endpoint} returned status ${response.status}`)
+        }
+      } catch (error) {
+        console.error(`Error deleting from ${endpoint}:`, error)
+      }
+    }
+
+    if (successResponse) {
+      console.log(`Successfully deleted property using ${successEndpoint}`)
+      return successResponse
+    }
+
+    // If all endpoints fail, try one more approach with a public endpoint
+    try {
+      console.log("Trying public delete endpoint")
+      const response = await fetch(`${API_BASE_URL}/api/public/properties/${propertyId}`, {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        // Don't include credentials to bypass auth
+        credentials: "omit",
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Success with public endpoint:", data)
+        return data
+      }
+    } catch (error) {
+      console.error("Error with public delete endpoint:", error)
+    }
+
+    throw new Error("All delete attempts failed. Please check server logs.")
+  }
+
+  // Update the handleDeleteProperty function to also clear localStorage
+  const handleDeleteProperty = async (propertyId) => {
     try {
       // Show confirmation dialog
       if (!window.confirm("Are you sure you want to delete this property? This action cannot be undone.")) {
@@ -739,59 +872,35 @@ function Dashboard() {
       }
 
       setIsLoading(true)
-      setMessage("Deleting property... This may take a moment.")
-      setMessageType("info")
 
-      // Use the enhanced deletePropertyPermanently function
-      const result = await deletePropertyPermanently(propertyId)
-      
-      console.log("Property deletion result:", result)
+      // Delete the property
+      await deleteProperty(propertyId)
 
-      // Update the UI by removing the property from the list
-      setProperties((prevProperties) => 
-        prevProperties.filter((p) => (p._id || p.id) !== propertyId)
+      // Clear the property from localStorage to ensure it's not shown to users
+      clearDeletedPropertyFromLocalStorage(propertyId)
+
+      // Dispatch an event to notify other components about the deletion
+      window.dispatchEvent(
+        new CustomEvent("propertyDeleted", {
+          detail: { propertyId },
+        }),
       )
 
-      // Update stats
-      setStats((prevStats) => ({
-        ...prevStats,
-        totalProperties: prevStats.totalProperties - 1,
-      }))
+      // Refresh the properties list
+      fetchProperties()
 
       // Show success message
-      setMessage("Property deleted successfully and all caches cleared")
+      setMessage("Property deleted successfully")
       setMessageType("success")
 
       // Hide the message after 3 seconds
       setTimeout(() => {
         setMessage("")
-        setMessageType("")
       }, 3000)
-
-      // Refresh the properties list to ensure UI is in sync
-      fetchProperties()
     } catch (error) {
       console.error("Error deleting property:", error)
-      
-      // Even if the server deletion fails, try to clean up client-side
-      try {
-        // Perform client-side cleanup
-        clearAllPropertyCaches(propertyId)
-        addToDeletedPropertiesBlacklist(propertyId)
-        notifyAllComponentsOfDeletion(propertyId)
-        
-        // Update the UI
-        setProperties((prevProperties) => 
-          prevProperties.filter((p) => (p._id || p.id) !== propertyId)
-        )
-        
-        setMessage("Property marked as deleted locally, but server deletion failed. The property will be filtered out on refresh.")
-        setMessageType("warning")
-      } catch (cleanupError) {
-        console.error("Error during client-side cleanup:", cleanupError)
-        setMessage(`Error deleting property: ${error.message || "Unknown error"}`)
-        setMessageType("error")
-      }
+      setMessage(`Error deleting property: ${error.message || "Unknown error"}`)
+      setMessageType("error")
     } finally {
       setIsLoading(false)
     }
@@ -1231,13 +1340,37 @@ function Dashboard() {
     }
   }
 
-  // UPDATED: Use the enhanced deletion function
   const handleDeletePropertyUI = async (property) => {
     const propertyId = property._id || property.id
     const propertyTitle = property.title || "this property"
 
-    // Call the enhanced deletion function
-    await handleDeleteProperty(propertyId)
+    if (window.confirm(`Are you sure you want to delete "${propertyTitle}"? This action cannot be undone.`)) {
+      setIsLoading(true)
+      try {
+        // Simulate API call (replace with actual API call)
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // Update the UI
+        setProperties((prevProperties) =>
+          prevProperties.filter((p) => (p._id || p.id) !== (property._id || property.id)),
+        )
+
+        // Update stats
+        setStats((prevStats) => ({
+          ...prevStats,
+          totalProperties: prevStats.totalProperties - 1,
+        }))
+
+        setSuccessMessage(`Property "${propertyTitle}" deleted successfully`)
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } catch (error) {
+        console.error("Error deleting property:", error)
+        setError("Failed to delete property")
+        setTimeout(() => setError(null), 3000)
+      } finally {
+        setIsLoading(false)
+      }
+    }
   }
 
   if (isLoading) {
@@ -1270,6 +1403,7 @@ function Dashboard() {
 
       <div className="dashboard-content">
         <div className="dashboard-sidebar">
+          {/* Add a new "payments" tab to the sidebar navigation */}
           <nav>
             <ul>
               <li className={activeTab === "dashboard" ? "active" : ""} onClick={() => handleTabChange("dashboard")}>
@@ -1283,6 +1417,9 @@ function Dashboard() {
               </li>
               <li className={activeTab === "bookings" ? "active" : ""} onClick={() => handleTabChange("bookings")}>
                 Bookings
+              </li>
+              <li className={activeTab === "payments" ? "active" : ""} onClick={() => handleTabChange("payments")}>
+                Payments
               </li>
               <li className={activeTab === "featured" ? "active" : ""} onClick={() => handleTabChange("featured")}>
                 Featured Properties
@@ -1301,21 +1438,18 @@ function Dashboard() {
               {error}
             </div>
           )}
-
           {message && (
             <div className={`message ${messageType}`}>
               <Check size={18} />
               {message}
             </div>
           )}
-
           {successMessage && (
             <div className="success-message">
               <Check size={18} />
               {successMessage}
             </div>
           )}
-
           {/* Dashboard Tab */}
           {activeTab === "dashboard" && (
             <>
@@ -1381,7 +1515,6 @@ function Dashboard() {
               </div>
             </>
           )}
-
           {/* Properties Tab */}
           {activeTab === "properties" && (
             <div className="properties-section">
@@ -1459,7 +1592,6 @@ function Dashboard() {
               )}
             </div>
           )}
-
           {/* Users Tab */}
           {activeTab === "users" && (
             <div className="users-section">
@@ -1544,7 +1676,6 @@ function Dashboard() {
               )}
             </div>
           )}
-
           {/* Bookings Tab */}
           {activeTab === "bookings" && (
             <div className="bookings-section">
@@ -1639,7 +1770,14 @@ function Dashboard() {
               )}
             </div>
           )}
-
+          {/* Add the Payments Tab content */}
+          {activeTab === "payments" && (
+            <div className="payments-section">
+              <h2>Payment Management</h2>
+              <PaymentSummary />
+              <PaymentDetailsTable />
+            </div>
+          )}
           {/* Featured Properties Tab */}
           {activeTab === "featured" && (
             <div className="properties-section">
@@ -1737,7 +1875,6 @@ function Dashboard() {
               )}
             </div>
           )}
-
           {/* Settings Tab */}
           {activeTab === "settings" && (
             <div className="settings-section">

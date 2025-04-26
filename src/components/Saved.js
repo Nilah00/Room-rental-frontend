@@ -1,25 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import {
-  Heart,
-  Bell,
-  MessageCircle,
-  User,
-  Home,
-  Car,
-  Wifi,
-  Droplet,
-  Bed,
-  Bath,
-  Snowflake,
-  Eye,
-  Badge,
-} from "lucide-react"
+import { Heart, Bell, MessageCircle, User, Home, Car, Wifi, Droplet, Bed, Bath, Snowflake, Eye, Badge, HomeIcon } from 'lucide-react'
 import ChatBox from "./ChatBox"
 import { getImageUrl, handleImageError } from "./imageUtils"
 import "./Saved.css"
+import { isAuthenticated, logout } from "../services/auth"
+import Notifications from "./NotificationSystem"
 
 const Saved = () => {
   const [savedListings, setSavedListings] = useState([])
@@ -32,23 +20,59 @@ const Saved = () => {
   const [showDropdown, setShowDropdown] = useState(false)
   const [username, setUsername] = useState("")
   const [currentUserId, setCurrentUserId] = useState("") // Add state for current user ID
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [isLandlord, setIsLandlord] = useState(false)
+  const [showChatList, setShowChatList] = useState(false)
+  
   const navigate = useNavigate()
+  const notificationRef = useRef(null)
+  const chatListRef = useRef(null)
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    const storedUser = JSON.parse(localStorage.getItem("user"))
-    if (token && storedUser) {
-      setIsLoggedIn(true)
-      setUsername(storedUser.name)
-      // Store the current user ID
-      setCurrentUserId(storedUser.id || storedUser._id)
-      const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
-      setSavedListings(storedFavorites)
+    // Check if user is authenticated
+    const authStatus = isAuthenticated(false)
+    setIsLoggedIn(authStatus)
+
+    if (authStatus) {
+      // Get the user data
+      const user = JSON.parse(localStorage.getItem("user"))
+      if (user) {
+        setUsername(user.name)
+        setCurrentUserId(user.id || user._id)
+        setIsLandlord(user.role === "landlord" || user.isLandlord === true)
+        
+        // Load saved listings
+        const storedFavorites = JSON.parse(localStorage.getItem("favorites")) || []
+        setSavedListings(storedFavorites)
+      }
     } else {
-      setIsLoggedIn(false)
       navigate("/login")
     }
   }, [navigate])
+
+  const toggleChatList = () => {
+    // Navigate to messages page
+    navigate("/messages")
+  }
+
+  const toggleNotifications = () => {
+    setShowNotifications((prev) => !prev)
+    // Reset unread count when opening notifications
+    if (!showNotifications) {
+      setUnreadNotifications(0)
+    }
+  }
+
+  const handleLogout = () => {
+    logout(false)
+    setIsLoggedIn(false)
+    setUsername("")
+    setIsLandlord(false)
+    setCurrentUserId("")
+    navigate("/")
+  }
 
   const removeFavorite = (listingId) => {
     if (!isLoggedIn) {
@@ -68,13 +92,6 @@ const Saved = () => {
       return
     }
     navigate(`/booknow/${listing.id || listing._id}`, { state: { roomDetails: listing } })
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("user")
-    setIsLoggedIn(false)
-    navigate("/")
   }
 
   // Updated function to handle chat with landlord
@@ -128,7 +145,7 @@ const Saved = () => {
       <header className="header">
         <div className="container">
           <Link to="/" className="logo">
-            <Home size={24} />
+            <HomeIcon size={24} />
             <span className="logo-text">RoomRental</span>
           </Link>
           <nav className="main-nav">
@@ -153,15 +170,31 @@ const Saved = () => {
                   Add Property
                 </Link>
               </li>
+              {isLandlord && (
+                <li>
+                  <Link to="/manage-bookings" className="nav-link">
+                    Booking Requests
+                  </Link>
+                </li>
+              )}
             </ul>
             <div className="nav-actions">
               <div className="nav-icons">
-                <Link to="/notifications" className="icon-link">
-                  <Bell size={20} />
-                </Link>
-                <Link to="/messages" className="icon-link">
-                  <MessageCircle size={20} />
-                </Link>
+                <div className="notification-icon-wrapper" ref={notificationRef}>
+                  <button className="icon-link" onClick={toggleNotifications}>
+                    <Bell size={20} />
+                    {unreadNotifications > 0 && <span className="notification-badge">{unreadNotifications}</span>}
+                  </button>
+                  {showNotifications && (
+                    <Notifications isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
+                  )}
+                </div>
+                <div className="chat-icon-wrapper" ref={chatListRef}>
+                  <button className="icon-link" onClick={toggleChatList}>
+                    <MessageCircle size={20} />
+                    {unreadMessages > 0 && <span className="notification-badge">{unreadMessages}</span>}
+                  </button>
+                </div>
               </div>
               {isLoggedIn ? (
                 <div className="user-menu">
@@ -180,18 +213,26 @@ const Saved = () => {
                       <Link to="/manage-properties" className="dropdown-item">
                         Manage Properties
                       </Link>
-                      <button onClick={handleLogout} className="dropdown-item">
+                      <Link to="/bookings" className="dropdown-item">
+                        My Bookings
+                      </Link>
+                      {isLandlord && (
+                        <Link to="/manage-bookings" className="dropdown-item">
+                          Booking Requests
+                        </Link>
+                      )}
+                      <button onClick={handleLogout} className="dropdown-item logout-btn">
                         Logout
                       </button>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="auth-buttons">
-                  <Link to="/login" className="btn btn-outline">
+                <div className="auth-buttons-container">
+                  <Link to="/login" className="auth-signup">
                     Sign In
                   </Link>
-                  <Link to="/register" className="btn btn-primary">
+                  <Link to="/register" className="auth-signin">
                     Sign Up
                   </Link>
                 </div>
@@ -330,4 +371,3 @@ const Saved = () => {
 }
 
 export default Saved
-

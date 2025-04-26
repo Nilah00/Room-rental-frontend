@@ -76,12 +76,14 @@ function ViewAllRooms() {
         (searchParams.priceRange === "35001+" && room.price > 35000)
       const matchesFurnished =
         !searchParams.furnished ||
+        searchParams.furnished === "all" ||
         (searchParams.furnished === "furnished" && room.furnished) ||
         (searchParams.furnished === "unfurnished" && !room.furnished)
 
       // Standardize status for filtering
       const roomStatus = room.status || "Available"
-      const matchesAvailability = !searchParams.availability || roomStatus === searchParams.availability
+      const matchesAvailability =
+        !searchParams.availability || searchParams.availability === "all" || roomStatus === searchParams.availability
 
       return matchesLocation && matchesPrice && matchesFurnished && matchesAvailability
     })
@@ -121,7 +123,6 @@ function ViewAllRooms() {
         console.log(`Filtered out ${response.data.length - filteredResponse.length} deleted properties`)
       }
 
-      // Standardize status values in the fetched data
       const standardizedRooms = filteredResponse.map((room) => {
         // If status is missing, set to "Available"
         if (!room.status) {
@@ -282,34 +283,57 @@ function ViewAllRooms() {
           }}
           className="search-form"
         >
-          <input
-            type="text"
-            name="location"
-            placeholder="Where do you want to live?"
-            value={searchParams.location}
-            onChange={handleInputChange}
-          />
-          <select name="priceRange" value={searchParams.priceRange} onChange={handleInputChange}>
-            <option value="">Price Range</option>
-            <option value="0-15000">Rs 0 - Rs 15,000</option>
-            <option value="15001-25000">Rs 15,001 - Rs 25,000</option>
-            <option value="25001-35000">Rs 25,001 - Rs 35,000</option>
-            <option value="35001+">Rs 35,001+</option>
-          </select>
-          <select name="furnished" value={searchParams.furnished} onChange={handleInputChange}>
-            <option value="">All</option>
-            <option value="furnished">Furnished</option>
-            <option value="unfurnished">Unfurnished</option>
-          </select>
-          <select name="availability" value={searchParams.availability} onChange={handleInputChange}>
-            <option value="">Availability Status</option>
-            <option value="Available">Available</option>
-            <option value="Pending">Pending</option>
-            <option value="Booked">Booked</option>
-          </select>
-          <button type="submit" className="btn btn-search">
-            <Search size={20} /> Search Rooms
-          </button>
+          <div className="search-row">
+            <input
+              type="text"
+              name="location"
+              placeholder="Where do you want to live?"
+              value={searchParams.location}
+              onChange={handleInputChange}
+              className="location-input"
+            />
+
+            <select
+              name="priceRange"
+              value={searchParams.priceRange}
+              onChange={handleInputChange}
+              className="price-range-select"
+            >
+              <option value="">Price Range</option>
+              <option value="0-15000">Rs 0 - Rs 15,000</option>
+              <option value="15001-25000">Rs 15,001 - Rs 25,000</option>
+              <option value="25001-35000">Rs 25,001 - Rs 35,000</option>
+              <option value="35001+">Rs 35,001+</option>
+            </select>
+
+            <div className="filter-group">
+              <label htmlFor="furnished">Furnished Status</label>
+              <select id="furnished" name="furnished" value={searchParams.furnished} onChange={handleInputChange}>
+                <option value="all">All</option>
+                <option value="furnished">Furnished</option>
+                <option value="unfurnished">Unfurnished</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="availability">Availability Status</label>
+              <select
+                id="availability"
+                name="availability"
+                value={searchParams.availability}
+                onChange={handleInputChange}
+              >
+                <option value="all">All</option>
+                <option value="Available">Available</option>
+                <option value="Pending">Pending</option>
+                <option value="Booked">Booked</option>
+              </select>
+            </div>
+
+            <button type="submit" className="search-button">
+              <Search size={20} /> Search Rooms
+            </button>
+          </div>
         </form>
 
         <div className="listings-grid">

@@ -265,7 +265,6 @@
   font-weight: bold;
 }
 
-/* Add this to make sure the double check icon renders properly */
 .status-read svg {
   fill: currentColor;
 }

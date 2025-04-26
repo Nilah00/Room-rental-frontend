@@ -580,9 +580,7 @@ const HomePage = () => {
                    <Link to="/profile" className="dropdown-item">
                      Personal Information
                    </Link>
-                   <Link to="/settings" className="dropdown-item">
-                     Settings
-                   </Link>
+                  
                    <Link to="/manage-properties" className="dropdown-item">
                      Manage Properties
                    </Link>

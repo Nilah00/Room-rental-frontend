@@ -220,7 +220,7 @@ function AddProperty() {
 
     // If it was a success modal, navigate to the rooms page instead of homepage
     if (modal.type === "success" && !isLoading) {
-      navigate("/rooms")
+      navigate("/manage-properties")
     }
   }
 
@@ -314,7 +314,7 @@ function AddProperty() {
       // Show success modal
       showModal(
         "Success",
-        "Property added successfully! You will be redirected to the View All Rooms page where your new listing will appear.",
+        "Property added successfully! You will be redirected to the Manage property page where your new listing will appear, you can check your listing in view all rooms page as well.",
         "success",
       )
     } catch (error) {

@@ -1,13 +1,21 @@
+/* Saved Page Styles */
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
 .saved-page {
-  padding: 2rem 0;
+  padding: 0; /* Remove top padding to eliminate gap */
 }
 
 .saved-page .header {
-  background-color: var(--white);
+  background-color: var(--white, #fff);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
   z-index: 1000;
+  margin-top: 0; /* Ensure no margin at the top */
 }
 
 .saved-page .container {
@@ -34,7 +42,7 @@
 .saved-page .logo-text {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--primary-color);
+  color: var(--primary-color, #1e8e3e);
 }
 
 .saved-page .main-nav {
@@ -50,7 +58,7 @@
 }
 
 .saved-page .nav-link {
-  color: var(--text-color);
+  color: var(--text-color, #333);
   text-decoration: none;
   font-weight: 500;
   padding: 0.5rem 1rem;
@@ -58,7 +66,7 @@
 }
 
 .saved-page .nav-link:hover {
-  color: var(--primary-color);
+  color: var(--primary-color, #1e8e3e);
 }
 
 .saved-page .nav-actions {
@@ -74,9 +82,36 @@
 }
 
 .saved-page .icon-link {
-  color: var(--text-color);
+  color: var(--text-color, #333);
   text-decoration: none;
   font-size: 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 15px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #e53935;
+  color: white;
+  font-size: 10px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saved-page .saved-listings {
+  padding-top: 2rem; /* Add padding to the content instead of the page */
 }
 
 .saved-page .saved-header {
@@ -95,7 +130,7 @@
 }
 
 .saved-page .listing-card {
-  background-color: var(--white);
+  background-color: var(--white, #fff);
   border-radius: 0.5rem;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -160,7 +195,7 @@
 .saved-page .listing-price {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--primary-color);
+  color: var(--primary-color, #1e8e3e);
   margin-bottom: 0.25rem;
 }
 
@@ -172,7 +207,7 @@
 
 .saved-page .furnished-status {
   font-size: 0.8rem;
-  color: var(--gray);
+  color: var(--gray, #666);
   margin-bottom: 0.5rem;
 }
 
@@ -185,7 +220,7 @@
 
 .saved-page .amenity {
   font-size: 0.8rem;
-  color: var(--gray);
+  color: var(--gray, #666);
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -243,6 +278,7 @@
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
 }
+
 /* Update the availability badge styles to constrain width */
 .availability-badge {
   display: inline-flex;
@@ -289,11 +325,33 @@
   cursor: not-allowed;
 }
 
-
-
+/* Responsive styles */
 @media (max-width: 767px) {
   .saved-page .listings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .saved-page .header .container {
+    flex-direction: column;
+    padding: 0.5rem 0;
+  }
+
+  .saved-page .main-nav {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+
+  .saved-page .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .saved-page .nav-actions {
+    margin-left: 0;
+    justify-content: center;
+    width: 100%;
   }
 }
 
@@ -314,4 +372,3 @@
     max-width: 1140px;
   }
 }
-

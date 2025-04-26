@@ -181,7 +181,8 @@ export default function EditProperty() {
 
     // If it was a success modal, navigate to the rooms page
     if (modal.type === "success" && !isSubmitting) {
-      navigate("/rooms")
+      navigate("/manage-properties")
+
     }
   }
 
@@ -345,7 +346,7 @@ export default function EditProperty() {
       await updateProperty(id, formDataToSend)
       showModal(
         "Success",
-        "Property updated successfully! You will be redirected to the View All Rooms page where you can see your updated listing.",
+        "Property updated successfully! You will be redirected to the manage property page where you can see your updated listing.",
         "success",
       )
     } catch (error) {
