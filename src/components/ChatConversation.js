@@ -214,7 +214,7 @@ const ChatConversation = ({ chatId, currentUserId: propCurrentUserId, chat: init
         // Store the chat data
         setChatData(chatData)
 
-        // If the chat data has messages, add them to our store
+        
         if (chatData.messages && chatData.messages.length > 0) {
           console.log("Adding messages from API to store:", chatData.messages.length)
           messageStore.addMessages(chatId, chatData.messages)
@@ -248,7 +248,7 @@ const ChatConversation = ({ chatId, currentUserId: propCurrentUserId, chat: init
           console.error("Error marking messages as read:", markError)
           // Continue even if marking as read fails
 
-          // Still clear the badge locally even if API call fails
+        
           notificationBadges.clearBadgeCount(chatId)
 
           // Still update the message store
@@ -528,7 +528,7 @@ const ChatConversation = ({ chatId, currentUserId: propCurrentUserId, chat: init
   // Get message status (sent, delivered, read)
   const getMessageStatus = (message) => {
     if (message.sender !== currentUserId) {
-      return null // Don't show status for received messages
+      return null 
     }
 
     if (message.error) {

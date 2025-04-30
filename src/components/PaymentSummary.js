@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { getPaymentStats } from "../services/adminApi"
 import { formatNPR } from "./utils/formatters"
-import { DollarSign, CreditCard, BarChart2, TrendingUp, RefreshCw } from "lucide-react"
+import { CreditCard, TrendingUp, RefreshCw } from "lucide-react"
 
 const PaymentSummary = () => {
   const [stats, setStats] = useState({
@@ -85,17 +85,8 @@ const PaymentSummary = () => {
         </button>
       </div>
 
-      <div className="payment-stats">
-        <div className="stat-card">
-          <div className="stat-icon">
-            <DollarSign size={24} />
-          </div>
-          <div className="stat-content">
-            <h3>Total Revenue</h3>
-            <p className="stat-number">{formatNPR(stats.totalRevenue)}</p>
-          </div>
-        </div>
-
+      {/* Added the missing opening div for stat cards container */}
+      <div className="stat-cards-container">
         <div className="stat-card">
           <div className="stat-icon">
             <CreditCard size={24} />
@@ -105,16 +96,6 @@ const PaymentSummary = () => {
             <p className="stat-number">
               {stats.successfulTransactions} / {stats.totalTransactions}
             </p>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <BarChart2 size={24} />
-          </div>
-          <div className="stat-content">
-            <h3>Average Payment</h3>
-            <p className="stat-number">{formatNPR(stats.averageTransaction)}</p>
           </div>
         </div>
 

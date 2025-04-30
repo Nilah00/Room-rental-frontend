@@ -182,9 +182,7 @@ const PaymentDetailsTable = ({ userId, propertyId }) => {
             <RefreshCw size={16} /> Refresh
           </button>
 
-          <button onClick={() => setIsAddPaymentModalOpen(true)} className="add-button">
-            <Plus size={16} /> Add Payment
-          </button>
+         
         </div>
       </div>
 

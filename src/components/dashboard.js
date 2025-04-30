@@ -608,10 +608,22 @@ function Dashboard() {
       }).length
       console.log(`Actual featured properties count: ${featuredCount}`)
 
-      // Calculate stats
-      const totalRevenue = processedProperties.reduce((sum, property) => {
+      // Calculate stats - improved revenue calculation
+      // First, get all booked properties
+      const bookedProperties = processedProperties.filter(
+        (property) => property.status === "Booked" || property.status === "Reserved",
+      )
+
+      // Calculate total revenue from booked properties (monthly revenue)
+      const monthlyRevenue = bookedProperties.reduce((sum, property) => {
         return sum + (property.price || 0)
       }, 0)
+
+      // Calculate annual projected revenue (monthly x 12)
+      const annualRevenue = monthlyRevenue * 12
+
+      // Set total revenue to annual projected revenue
+      const totalRevenue = annualRevenue
 
       setStats((prevStats) => ({
         ...prevStats,
@@ -1472,10 +1484,7 @@ function Dashboard() {
                     {isLoadingProperties ? "Loading..." : stats.featuredProperties} / {MAX_FEATURED_PROPERTIES}
                   </p>
                 </div>
-                <div className="stat-card">
-                  <h3>Total Revenue</h3>
-                  <p className="stat-number">{formatNPR(stats.totalRevenue)}</p>
-                </div>
+                
               </div>
 
               <div className="dashboard-overview">

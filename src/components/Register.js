@@ -181,11 +181,6 @@ function Register() {
                 {isLoading ? "Creating Account..." : "Register"}
               </button>
             </form>
-
-            <div className="auth-divider">
-              <span>Or continue with</span>
-            </div>
-
             
 
             <div className="auth-footer">

@@ -22,6 +22,7 @@ import Bookings from "./components/bookings" // Import the Bookings component
 import Payment from "./components/Payment"
 import PaymentSuccess from "./components/PaymentSuccess"
 import PaymentFailure from "./components/PaymentFailure"
+import Profile from "./components/profile"
 
 function App() {
   return (
@@ -106,6 +107,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/profile" element={<Profile />} />
         <Route
           path="/RoomMap"
           element={
